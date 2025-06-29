@@ -337,6 +337,8 @@ class BattleshipGame {
         this.connectionMenu.style.display = 'none';
         this.layoutSelection.style.display = 'block';
         this.renderLayoutOptions();
+        // Auto-enable the confirm button since classic is selected by default
+        this.confirmLayoutBtn.disabled = false;
     }
 
     renderLayoutOptions() {
