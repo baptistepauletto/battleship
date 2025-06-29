@@ -1,0 +1,815 @@
+// Firebase Configuration
+const firebaseConfig = {
+    apiKey: "AIzaSyBO87pxL-XpGERh_GBSS_Xd8lQKeEKqZ9A",
+    authDomain: "battleship-807ff.firebaseapp.com",
+    databaseURL: "https://battleship-807ff-default-rtdb.firebaseio.com",
+    projectId: "battleship-807ff",
+    storageBucket: "battleship-807ff.firebasestorage.app",
+    messagingSenderId: "407386930564",
+    appId: "1:407386930564:web:cfd10fcaf2e20fba57f1d1",
+    measurementId: "G-3HN995NF5T"
+};
+
+class BattleshipGame {
+    constructor() {
+        this.isMultiplayer = true;
+        this.roomCode = null;
+        this.playerId = null;
+        this.playerNumber = null;
+        this.opponentConnected = false;
+        this.gamePhase = 'connection'; // 'connection', 'setup', 'game', 'over'
+        this.selectedShip = null;
+        this.shipOrientation = 'horizontal';
+        
+        this.ships = {
+            carrier: { size: 5, placed: false },
+            battleship: { size: 4, placed: false },
+            cruiser: { size: 3, placed: false },
+            submarine: { size: 3, placed: false },
+            destroyer: { size: 2, placed: false }
+        };
+
+        this.gameState = {
+            players: {
+                1: {
+                    board: this.createEmptyBoard(),
+                    ships: JSON.parse(JSON.stringify(this.ships)),
+                    shipsReady: false,
+                    connected: false
+                },
+                2: {
+                    board: this.createEmptyBoard(),
+                    ships: JSON.parse(JSON.stringify(this.ships)),
+                    shipsReady: false,
+                    connected: false
+                }
+            },
+            currentPlayer: 1,
+            gameStarted: false,
+            gameOver: false,
+            winner: null
+        };
+
+        this.initializeFirebase();
+        this.initializeDOM();
+        this.bindEvents();
+        this.showConnectionScreen();
+    }
+
+    updateGamePhaseClasses() {
+        const gameContainer = document.querySelector('.game-container');
+        // Remove all phase classes
+        gameContainer.classList.remove('setup-phase', 'game-phase', 'connection-phase');
+        
+        // Add current phase class
+        if (this.gamePhase === 'setup') {
+            gameContainer.classList.add('setup-phase');
+        } else if (this.gamePhase === 'game') {
+            gameContainer.classList.add('game-phase');
+        } else if (this.gamePhase === 'connection') {
+            gameContainer.classList.add('connection-phase');
+        }
+    }
+
+    createEmptyBoard() {
+        return Array(10).fill().map(() => Array(10).fill(0));
+    }
+
+    initializeFirebase() {
+        try {
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+            }
+            this.database = firebase.database();
+            this.playerId = this.generatePlayerId();
+        } catch (error) {
+            console.error('Firebase initialization failed:', error);
+            alert('Connection failed. Please check your internet connection.');
+        }
+    }
+
+    generatePlayerId() {
+        return 'player_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    generateRoomCode() {
+        return Math.random().toString(36).substr(2, 6).toUpperCase();
+    }
+
+    initializeDOM() {
+        // Connection screen elements
+        this.connectionScreen = document.getElementById('connectionScreen');
+        this.createRoomBtn = document.getElementById('createRoomBtn');
+        this.joinRoomBtn = document.getElementById('joinRoomBtn');
+        this.joinRoomSection = document.getElementById('joinRoomSection');
+        this.roomCodeInput = document.getElementById('roomCodeInput');
+        this.joinGameBtn = document.getElementById('joinGameBtn');
+        this.backBtn = document.getElementById('backBtn');
+        this.roomWaiting = document.getElementById('roomWaiting');
+        this.displayRoomCode = document.getElementById('displayRoomCode');
+        this.cancelRoomBtn = document.getElementById('cancelRoomBtn');
+        this.gameReady = document.getElementById('gameReady');
+        this.startMultiplayerBtn = document.getElementById('startMultiplayerBtn');
+        this.connectionMenu = document.getElementById('connectionMenu');
+
+        // Game elements
+        this.gameStatus = document.getElementById('gameStatus');
+        this.setupPhase = document.getElementById('setupPhase');
+        this.shipList = document.getElementById('shipList');
+        this.rotateBtn = document.getElementById('rotateBtn');
+        this.randomBtn = document.getElementById('randomBtn');
+        this.readyBtn = document.getElementById('readyBtn');
+        this.player1Board = document.getElementById('player1Board');
+        this.player2Board = document.getElementById('player2Board');
+        this.player1Section = document.getElementById('player1Section');
+        this.player2Section = document.getElementById('player2Section');
+    }
+
+    bindEvents() {
+        // Connection events
+        this.createRoomBtn.addEventListener('click', () => this.createRoom());
+        this.joinRoomBtn.addEventListener('click', () => this.showJoinRoom());
+        this.joinGameBtn.addEventListener('click', () => this.joinRoom());
+        this.backBtn.addEventListener('click', () => this.showConnectionMenu());
+        this.cancelRoomBtn.addEventListener('click', () => this.cancelRoom());
+        this.startMultiplayerBtn.addEventListener('click', () => this.startMultiplayerGame());
+
+        // Game events
+        this.shipList.addEventListener('click', (e) => {
+            if (e.target.classList.contains('ship-item') && !e.target.classList.contains('placed')) {
+                this.selectShip(e.target);
+            }
+        });
+
+        this.rotateBtn.addEventListener('click', () => {
+            this.shipOrientation = this.shipOrientation === 'horizontal' ? 'vertical' : 'horizontal';
+            this.rotateBtn.textContent = `🔄 Rotate Ship (${this.shipOrientation})`;
+        });
+
+        this.randomBtn.addEventListener('click', () => {
+            this.randomPlacement();
+        });
+
+        this.readyBtn.addEventListener('click', () => {
+            this.confirmShipPlacement();
+        });
+
+        // Room code input enter key
+        this.roomCodeInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.joinRoom();
+            }
+        });
+    }
+
+    // Connection methods
+    showConnectionScreen() {
+        this.connectionScreen.style.display = 'flex';
+    }
+
+    hideConnectionScreen() {
+        this.connectionScreen.style.display = 'none';
+    }
+
+    showConnectionMenu() {
+        this.connectionMenu.style.display = 'block';
+        this.joinRoomSection.style.display = 'none';
+        this.roomWaiting.style.display = 'none';
+        this.gameReady.style.display = 'none';
+        this.roomCodeInput.value = '';
+    }
+
+    showJoinRoom() {
+        this.connectionMenu.style.display = 'none';
+        this.joinRoomSection.style.display = 'block';
+        this.roomCodeInput.focus();
+    }
+
+    showWaitingRoom() {
+        this.connectionMenu.style.display = 'none';
+        this.joinRoomSection.style.display = 'none';
+        this.roomWaiting.style.display = 'block';
+        this.gameReady.style.display = 'none';
+    }
+
+    showGameReady() {
+        this.connectionMenu.style.display = 'none';
+        this.joinRoomSection.style.display = 'none';
+        this.roomWaiting.style.display = 'none';
+        this.gameReady.style.display = 'block';
+    }
+
+    async createRoom() {
+        this.roomCode = this.generateRoomCode();
+        this.playerNumber = 1;
+
+        try {
+            await this.database.ref(`rooms/${this.roomCode}`).set({
+                players: {
+                    1: {
+                        connected: true,
+                        board: this.createEmptyBoard(),
+                        ships: this.ships,
+                        shipsReady: false
+                    }
+                },
+                gameState: {
+                    gameStarted: false,
+                    currentPlayer: 1,
+                    gameOver: false,
+                    winner: null
+                }
+            });
+
+            this.displayRoomCode.textContent = this.roomCode;
+            this.showWaitingRoom();
+            this.listenForRoomUpdates();
+        } catch (error) {
+            console.error('Error creating room:', error);
+            alert('Failed to create room. Please try again.');
+        }
+    }
+
+    async joinRoom() {
+        const roomCode = this.roomCodeInput.value.trim().toUpperCase();
+        if (!roomCode) {
+            alert('Please enter a room code');
+            return;
+        }
+
+        try {
+            const roomRef = this.database.ref(`rooms/${roomCode}`);
+            const snapshot = await roomRef.once('value');
+            
+            if (!snapshot.exists()) {
+                alert('Room not found. Please check the room code.');
+                return;
+            }
+
+            const roomData = snapshot.val();
+            if (roomData.players && roomData.players[2]) {
+                alert('Room is full');
+                return;
+            }
+
+            this.roomCode = roomCode;
+            this.playerNumber = 2;
+
+            await roomRef.child('players/2').set({
+                connected: true,
+                board: this.createEmptyBoard(),
+                ships: this.ships,
+                shipsReady: false
+            });
+
+            this.hideConnectionScreen();
+            this.listenForRoomUpdates();
+        } catch (error) {
+            console.error('Error joining room:', error);
+            alert('Failed to join room. Please try again.');
+        }
+    }
+
+    listenForRoomUpdates() {
+        this.database.ref(`rooms/${this.roomCode}`).on('value', (snapshot) => {
+            if (snapshot.exists()) {
+                this.handleRoomUpdate(snapshot.val());
+            } else {
+                this.handleRoomClosed();
+            }
+        });
+    }
+
+    handleRoomUpdate(roomData) {
+        if (!roomData || !roomData.players) return;
+
+        // Check if both players are connected
+        const players = roomData.players;
+        const bothConnected = players[1] && players[2] && players[1].connected && players[2].connected;
+
+        if (bothConnected && this.gamePhase === 'connection') {
+            if (this.playerNumber === 1) {
+                this.showGameReady();
+            }
+        } else if (this.gamePhase === 'connection' && this.playerNumber === 1) {
+            this.showWaitingRoom();
+        }
+
+        // Update game state if game has started
+        if (roomData.gameState && roomData.gameState.gameStarted && this.gamePhase !== 'game' && this.gamePhase !== 'over') {
+            this.gameState = roomData;
+            this.startGame();
+        } else if (roomData.gameState && roomData.gameState.battlePhase && this.gamePhase === 'setup') {
+            this.gameState = roomData;
+            this.gamePhase = 'game';
+            this.updateGamePhaseClasses();
+            this.setupPhase.style.display = 'none';
+            this.renderBoards();
+            this.updatePlayerSections();
+            this.updateStatus();
+        } else if (this.gamePhase === 'game' || this.gamePhase === 'setup') {
+            this.gameState = roomData;
+            this.syncGameState();
+        }
+    }
+
+    async cancelRoom() {
+        if (this.roomCode) {
+            try {
+                await this.database.ref(`rooms/${this.roomCode}`).remove();
+            } catch (error) {
+                console.error('Error canceling room:', error);
+            }
+        }
+        this.showConnectionMenu();
+    }
+
+    handleRoomClosed() {
+        if (this.gamePhase !== 'over') {
+            alert('The room has been closed by the host.');
+            this.showConnectionMenu();
+        }
+    }
+
+    async startMultiplayerGame() {
+        if (this.playerNumber === 1) {
+            try {
+                await this.database.ref(`rooms/${this.roomCode}/gameState/gameStarted`).set(true);
+            } catch (error) {
+                console.error('Error starting game:', error);
+            }
+        }
+    }
+
+    startGame() {
+        this.gamePhase = 'setup';
+        this.updateGamePhaseClasses();
+        this.hideConnectionScreen();
+        this.renderBoards();
+        this.updatePlayerSections();
+        this.updateStatus();
+    }
+
+    selectShip(shipElement) {
+        // Remove selection from all ships
+        document.querySelectorAll('.ship-item').forEach(item => {
+            item.classList.remove('selected');
+        });
+
+        // Select the clicked ship
+        shipElement.classList.add('selected');
+        this.selectedShip = {
+            type: shipElement.dataset.ship,
+            size: parseInt(shipElement.dataset.size)
+        };
+    }
+
+    renderBoards() {
+        this.renderBoard(this.player1Board, 1);
+        this.renderBoard(this.player2Board, 2);
+    }
+
+    renderBoard(boardElement, player) {
+        if (!this.gameState || !this.gameState.players) return;
+        
+        boardElement.innerHTML = '';
+        const board = this.gameState.players[player].board;
+
+        for (let row = 0; row < 10; row++) {
+            for (let col = 0; col < 10; col++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.dataset.row = row;
+                cell.dataset.col = col;
+                cell.dataset.player = player;
+
+                const cellValue = board[row][col];
+                
+                if (this.gamePhase === 'setup' && player === this.playerNumber) {
+                    if (cellValue === 1) {
+                        cell.classList.add('ship');
+                        // Add consistent ship type class based on position for visual variety
+                        const shipTypeClasses = ['carrier', 'battleship', 'cruiser', 'submarine', 'destroyer'];
+                        const typeIndex = (row + col) % shipTypeClasses.length;
+                        cell.classList.add(shipTypeClasses[typeIndex]);
+                    }
+                    cell.addEventListener('click', (e) => this.handleCellClick(e));
+                } else if (this.gamePhase === 'game') {
+                    if (player !== this.playerNumber) {
+                        // Opponent's board - show hits and misses only
+                        if (cellValue === 2) cell.classList.add('hit');
+                        if (cellValue === -1) cell.classList.add('miss');
+                        if ((cellValue === 0 || cellValue === 1) && this.gameState.gameState && this.gameState.gameState.currentPlayer === this.playerNumber && !this.gameState.gameState.gameOver) {
+                            cell.addEventListener('click', (e) => this.handleAttack(e));
+                        }
+                    } else {
+                        // Own board - show ships, hits, and misses
+                        if (cellValue === 1) {
+                            cell.classList.add('ship');
+                            // Add consistent ship type class based on position for visual variety
+                            const shipTypeClasses = ['carrier', 'battleship', 'cruiser', 'submarine', 'destroyer'];
+                            const typeIndex = (row + col) % shipTypeClasses.length;
+                            cell.classList.add(shipTypeClasses[typeIndex]);
+                        }
+                        if (cellValue === 2) {
+                            cell.classList.add('hit');
+                            cell.classList.add('ship'); // Keep ship class to show it was a ship hit
+                        }
+                        if (cellValue === -1) cell.classList.add('miss');
+                    }
+                }
+
+                boardElement.appendChild(cell);
+            }
+        }
+    }
+
+    syncGameState() {
+        // Check if we should be in battle phase but aren't
+        if (this.gameState && this.gameState.gameState && this.gameState.gameState.battlePhase && this.gamePhase !== 'game') {
+            this.gamePhase = 'game';
+            this.updateGamePhaseClasses();
+            this.setupPhase.style.display = 'none';
+        }
+        
+        if (this.gamePhase === 'game') {
+            this.renderBoards();
+            this.updatePlayerSections();
+            this.checkGameEnd();
+        }
+        this.updateStatus();
+    }
+
+    async handleCellClick(e) {
+        if (!this.selectedShip || this.gamePhase !== 'setup') return;
+
+        const row = parseInt(e.target.dataset.row);
+        const col = parseInt(e.target.dataset.col);
+        const player = parseInt(e.target.dataset.player);
+
+        if (player !== this.playerNumber) return;
+
+        if (this.canPlaceShip(row, col, this.selectedShip.size, this.shipOrientation, player)) {
+            await this.placeShip(row, col, this.selectedShip.size, this.shipOrientation, player, this.selectedShip.type);
+            await this.markShipAsPlaced(this.selectedShip.type);
+            this.selectedShip = null;
+            this.checkReadyState();
+            this.renderBoards();
+        }
+    }
+
+    canPlaceShip(row, col, size, orientation, player) {
+        if (!this.gameState || !this.gameState.players) return false;
+        const board = this.gameState.players[player].board;
+
+        for (let i = 0; i < size; i++) {
+            const currentRow = orientation === 'horizontal' ? row : row + i;
+            const currentCol = orientation === 'horizontal' ? col + i : col;
+
+            // Check bounds
+            if (currentRow >= 10 || currentCol >= 10) return false;
+
+            // Check if cell is already occupied
+            if (board[currentRow][currentCol] !== 0) return false;
+
+            // Check adjacent cells for other ships
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    const adjRow = currentRow + dr;
+                    const adjCol = currentCol + dc;
+                    if (adjRow >= 0 && adjRow < 10 && adjCol >= 0 && adjCol < 10) {
+                        if (board[adjRow][adjCol] === 1) {
+                            // Check if this adjacent ship cell is part of the current placement
+                            let isPartOfCurrentShip = false;
+                            for (let j = 0; j < size; j++) {
+                                const shipRow = orientation === 'horizontal' ? row : row + j;
+                                const shipCol = orientation === 'horizontal' ? col + j : col;
+                                if (adjRow === shipRow && adjCol === shipCol) {
+                                    isPartOfCurrentShip = true;
+                                    break;
+                                }
+                            }
+                            if (!isPartOfCurrentShip) return false;
+                        }
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+    async placeShip(row, col, size, orientation, player, shipType = null) {
+        if (!this.gameState || !this.gameState.players) return;
+        
+        const updates = {};
+        for (let i = 0; i < size; i++) {
+            const currentRow = orientation === 'horizontal' ? row : row + i;
+            const currentCol = orientation === 'horizontal' ? col + i : col;
+            updates[`rooms/${this.roomCode}/players/${player}/board/${currentRow}/${currentCol}`] = 1;
+        }
+
+        try {
+            await this.database.ref().update(updates);
+        } catch (error) {
+            console.error('Error placing ship:', error);
+        }
+    }
+
+    async markShipAsPlaced(shipType) {
+        try {
+            await this.database.ref(`rooms/${this.roomCode}/players/${this.playerNumber}/ships/${shipType}/placed`).set(true);
+            
+            const shipElement = document.querySelector(`[data-ship="${shipType}"]`);
+            shipElement.classList.add('placed');
+            shipElement.classList.remove('selected');
+        } catch (error) {
+            console.error('Error marking ship as placed:', error);
+        }
+    }
+
+    checkReadyState() {
+        if (!this.gameState || !this.gameState.players) return;
+        
+        const allShipsPlaced = Object.values(this.gameState.players[this.playerNumber].ships).every(ship => ship.placed);
+        this.readyBtn.disabled = !allShipsPlaced;
+        
+        if (allShipsPlaced) {
+            this.readyBtn.textContent = '✅ Ready to Battle';
+        } else {
+            this.readyBtn.textContent = `✅ Ready to Battle (${Object.values(this.gameState.players[this.playerNumber].ships).filter(s => !s.placed).length} ships left)`;
+        }
+    }
+
+    async confirmShipPlacement() {
+        try {
+            await this.database.ref(`rooms/${this.roomCode}/players/${this.playerNumber}/shipsReady`).set(true);
+            
+            // Check if both players are ready
+            const snapshot = await this.database.ref(`rooms/${this.roomCode}/players`).once('value');
+            const players = snapshot.val();
+            
+            if (players && players[1] && players[2] && players[1].shipsReady && players[2].shipsReady) {
+                // Start the battle phase - only host (player 1) sets this
+                if (this.playerNumber === 1) {
+                    await this.database.ref(`rooms/${this.roomCode}/gameState`).update({
+                        currentPlayer: 1,
+                        gameStarted: true,
+                        battlePhase: true
+                    });
+                }
+                
+                this.gamePhase = 'game';
+                this.updateGamePhaseClasses();
+                this.setupPhase.style.display = 'none';
+                this.renderBoards();
+                this.updatePlayerSections();
+                this.updateStatus();
+            } else {
+                this.gameStatus.textContent = 'Waiting for opponent to finish ship placement...';
+                this.setupPhase.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Error confirming ship placement:', error);
+        }
+    }
+
+    resetShipSelection() {
+        document.querySelectorAll('.ship-item').forEach(item => {
+            item.classList.remove('placed', 'selected');
+        });
+        this.selectedShip = null;
+        this.readyBtn.disabled = true;
+        this.checkReadyState();
+    }
+
+    updatePlayerSections() {
+        // Update titles based on player perspective
+        const player1Title = this.player1Section.querySelector('.player-title');
+        const player2Title = this.player2Section.querySelector('.player-title');
+        
+        if (this.playerNumber === 1) {
+            player1Title.textContent = '🎯 Your Fleet';
+            player2Title.textContent = '🎯 Enemy Fleet';
+        } else {
+            player1Title.textContent = '🎯 Enemy Fleet';
+            player2Title.textContent = '🎯 Your Fleet';
+        }
+
+        if (this.gamePhase === 'setup') {
+            // During setup, only show current player's board
+            this.player1Section.classList.toggle('current-player', this.playerNumber === 1);
+            this.player2Section.classList.toggle('current-player', this.playerNumber === 2);
+        } else if (this.gamePhase === 'game' && this.gameState && this.gameState.gameState) {
+            // Remove setup classes
+            this.player1Section.classList.remove('current-player');
+            this.player2Section.classList.remove('current-player');
+            
+            // Show both boards and highlight active player
+            const currentPlayer = this.gameState.gameState.currentPlayer;
+            this.player1Section.classList.toggle('active', currentPlayer === 1);
+            this.player2Section.classList.toggle('active', currentPlayer === 2);
+            
+            // Add class to show which section is for the current user
+            this.player1Section.classList.toggle('own-board', this.playerNumber === 1);
+            this.player2Section.classList.toggle('own-board', this.playerNumber === 2);
+        }
+    }
+
+    async handleAttack(e) {
+        if (this.gamePhase !== 'game' || !this.gameState || !this.gameState.gameState) return;
+        if (this.gameState.gameState.currentPlayer !== this.playerNumber) return;
+        if (this.gameState.gameState.gameOver) return;
+
+        const row = parseInt(e.target.dataset.row);
+        const col = parseInt(e.target.dataset.col);
+        const targetPlayer = parseInt(e.target.dataset.player);
+
+        if (targetPlayer === this.playerNumber) return; // Can't attack own board
+
+        const board = this.gameState.players[targetPlayer].board;
+        const cellValue = board[row][col];
+
+        if (cellValue === 2 || cellValue === -1) return; // Already attacked
+
+        try {
+            let nextPlayer = this.playerNumber;
+            
+            if (cellValue === 1) {
+                // Hit!
+                await this.database.ref(`rooms/${this.roomCode}/players/${targetPlayer}/board/${row}/${col}`).set(2);
+                
+                // Check win condition
+                const updatedSnapshot = await this.database.ref(`rooms/${this.roomCode}/players/${targetPlayer}/board`).once('value');
+                const updatedBoard = updatedSnapshot.val();
+                
+                if (this.checkWinConditionFromBoard(updatedBoard)) {
+                    await this.database.ref(`rooms/${this.roomCode}/gameState`).update({
+                        gameOver: true,
+                        winner: this.playerNumber
+                    });
+                    return;
+                }
+                // Stay same player on hit
+            } else {
+                // Miss
+                await this.database.ref(`rooms/${this.roomCode}/players/${targetPlayer}/board/${row}/${col}`).set(-1);
+                nextPlayer = this.playerNumber === 1 ? 2 : 1;
+            }
+
+            // Update current player
+            await this.database.ref(`rooms/${this.roomCode}/gameState/currentPlayer`).set(nextPlayer);
+        } catch (error) {
+            console.error('Error handling attack:', error);
+        }
+    }
+
+    checkWinConditionFromBoard(board) {
+        if (!board) return false;
+        
+        for (let row = 0; row < 10; row++) {
+            for (let col = 0; col < 10; col++) {
+                if (board[row] && board[row][col] === 1) {
+                    return false; // Still has unhit ship cells
+                }
+            }
+        }
+        return true;
+    }
+
+    checkGameEnd() {
+        if (!this.gameState || !this.gameState.gameState) return;
+        
+        if (this.gameState.gameState.gameOver) {
+            this.endGame(this.gameState.gameState.winner);
+        }
+    }
+
+    endGame(winner) {
+        this.gamePhase = 'over';
+        this.updateGamePhaseClasses();
+        
+        const gameOverModal = document.createElement('div');
+        gameOverModal.className = 'game-over';
+        const isWinner = winner === this.playerNumber;
+        gameOverModal.innerHTML = `
+            <div class="game-over-modal">
+                <div class="game-over-title">${isWinner ? '🎉 VICTORY! 🎉' : '💀 DEFEAT 💀'}</div>
+                <div class="game-over-message">${isWinner ? 'You Win!' : 'You Lose!'}</div>
+                <button class="btn btn-primary" onclick="location.reload()">Play Again</button>
+            </div>
+        `;
+        
+        document.body.appendChild(gameOverModal);
+    }
+
+    async randomPlacement() {
+        if (!this.gameState || !this.gameState.players) return;
+        
+        const player = this.playerNumber;
+        
+        try {
+            // Clear current ships
+            const clearUpdates = {};
+            for (let row = 0; row < 10; row++) {
+                for (let col = 0; col < 10; col++) {
+                    clearUpdates[`rooms/${this.roomCode}/players/${player}/board/${row}/${col}`] = 0;
+                }
+            }
+            
+            // Reset ship states
+            Object.keys(this.gameState.players[player].ships).forEach(shipType => {
+                clearUpdates[`rooms/${this.roomCode}/players/${player}/ships/${shipType}/placed`] = false;
+            });
+
+            await this.database.ref().update(clearUpdates);
+
+            // Place ships randomly
+            const shipSizes = [5, 4, 3, 3, 2];
+            const shipTypes = ['carrier', 'battleship', 'cruiser', 'submarine', 'destroyer'];
+            
+            for (let i = 0; i < shipSizes.length; i++) {
+                let placed = false;
+                let attempts = 0;
+                
+                while (!placed && attempts < 100) {
+                    const row = Math.floor(Math.random() * 10);
+                    const col = Math.floor(Math.random() * 10);
+                    const orientation = Math.random() < 0.5 ? 'horizontal' : 'vertical';
+                    
+                    if (this.canPlaceShip(row, col, shipSizes[i], orientation, player)) {
+                        await this.placeShip(row, col, shipSizes[i], orientation, player);
+                        await this.database.ref(`rooms/${this.roomCode}/players/${player}/ships/${shipTypes[i]}/placed`).set(true);
+                        placed = true;
+                    }
+                    attempts++;
+                }
+            }
+
+            // Update UI
+            document.querySelectorAll('.ship-item').forEach(item => {
+                item.classList.add('placed');
+                item.classList.remove('selected');
+            });
+            
+            this.selectedShip = null;
+            this.checkReadyState();
+        } catch (error) {
+            console.error('Error with random placement:', error);
+        }
+    }
+
+    updateStatus() {
+        // Auto-fix: if both players ready but no battle phase set, force it
+        if (this.gamePhase === 'setup' && this.gameState && this.gameState.players && 
+            this.gameState.players[1] && this.gameState.players[2] &&
+            this.gameState.players[1].shipsReady && this.gameState.players[2].shipsReady &&
+            (!this.gameState.gameState || !this.gameState.gameState.battlePhase)) {
+            
+            setTimeout(async () => {
+                if (this.playerNumber === 1) {
+                    await this.database.ref(`rooms/${this.roomCode}/gameState`).update({
+                        battlePhase: true,
+                        gameStarted: true,
+                        currentPlayer: 1
+                    });
+                }
+                this.gamePhase = 'game';
+                this.updateGamePhaseClasses();
+                this.setupPhase.style.display = 'none';
+                this.renderBoards();
+                this.updatePlayerSections();
+                this.updateStatus();
+            }, 1000);
+        }
+        
+        if (this.gamePhase === 'setup') {
+            this.gameStatus.textContent = `Place your ships on your board`;
+        } else if (this.gamePhase === 'game' && this.gameState && this.gameState.gameState) {
+            const currentPlayer = this.gameState.gameState.currentPlayer;
+            if (currentPlayer === this.playerNumber) {
+                this.gameStatus.textContent = `Your turn - Click on opponent's board to attack!`;
+            } else {
+                this.gameStatus.textContent = `Opponent's turn - Wait for their move`;
+            }
+        } else if (this.gamePhase === 'connection') {
+            this.gameStatus.textContent = `Connecting to multiplayer...`;
+        }
+    }
+}
+
+// Initialize the game when the page loads
+window.addEventListener('DOMContentLoaded', () => {
+    // Check if Firebase is available
+    if (typeof firebase === 'undefined') {
+        alert('Firebase failed to load. Please check your internet connection and refresh the page.');
+        return;
+    }
+    
+    try {
+        new BattleshipGame();
+    } catch (error) {
+        console.error('Failed to initialize game:', error);
+        alert('Failed to initialize game. Please refresh the page and try again.');
+    }
+}); 
