@@ -1083,6 +1083,33 @@ body {
     50% { opacity: 0.5; }
 }
 
+/* Waiting animation for joiner */
+.waiting-dots {
+    animation: waitingPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes waitingPulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+/* Game Ready section styling */
+#gameReady {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+#gameReady .waiting-message {
+    text-align: center;
+}
+
+#startMultiplayerBtn {
+    margin: 10px auto;
+    display: block;
+}
+
 @media (max-width: 768px) {
     .game-boards {
         flex-direction: column;

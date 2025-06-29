@@ -68,6 +68,7 @@ Both players simultaneously place 5 ships on their boards:
 
 - **Frontend**: Pure HTML, CSS, and JavaScript (no frameworks)
 - **Backend**: Firebase Realtime Database for multiplayer sync
+- **Analytics**: Room metadata tracking (country, timezone, timestamps)
 - **Modular structure**: Separated into HTML, CSS, and JS files for maintainability
 - **Modern features**: CSS Grid, Flexbox, CSS animations, WebRTC-like experience
 - **Browser compatibility**: Works in all modern browsers
@@ -96,6 +97,20 @@ Player 1 Browser ←→ Firebase Realtime DB ←→ Player 2 Browser
   Game State            Synchronized           Game State
   Updates              Game Rooms              Updates
 ```
+
+### Database Structure
+Each room in Firebase includes:
+- **Room Metadata**: Creation timestamp, IP address, country, region, city, ISP, timezone, browser info
+- **Player Data**: Ship positions, board state, connection status, join metadata (including location)
+- **Game State**: Current player turn, layout, rock settings, win conditions
+
+**Privacy Notice**: This game collects IP addresses and location data (country, region, city) for analytics purposes. Data includes:
+- IP address and geolocation (via ipapi.co service)
+- Browser locale and timezone
+- Creation/join timestamps
+- ISP information
+
+No personal information beyond location data is stored.
 
 ## Game Rules 📋
 

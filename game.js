@@ -235,6 +235,43 @@ class BattleshipGame {
         return Math.random().toString(36).substr(2, 6).toUpperCase();
     }
 
+    async getRoomMetadata() {
+        const metadata = {
+            createdAt: new Date().toISOString(),
+            browserLocale: navigator.language || 'unknown',
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown',
+            userAgent: navigator.userAgent.substring(0, 100) // Truncated for privacy
+        };
+
+        // Try to extract country from locale (e.g., 'en-US' -> 'US')
+        if (metadata.browserLocale.includes('-')) {
+            metadata.countryCode = metadata.browserLocale.split('-')[1];
+        }
+
+        // Get IP address and location data
+        try {
+            const response = await fetch('https://ipapi.co/json/', {
+                timeout: 5000
+            });
+            
+            if (response.ok) {
+                const ipData = await response.json();
+                metadata.ipAddress = ipData.ip || 'unknown';
+                metadata.country = ipData.country_name || 'unknown';
+                metadata.countryCode = ipData.country_code || metadata.countryCode; // Override with more accurate data
+                metadata.region = ipData.region || 'unknown';
+                metadata.city = ipData.city || 'unknown';
+                metadata.isp = ipData.org || 'unknown';
+            }
+        } catch (error) {
+            console.warn('Could not fetch IP location data:', error);
+            metadata.ipAddress = 'unavailable';
+            metadata.country = 'unknown';
+        }
+
+        return metadata;
+    }
+
     initializeDOM() {
         // Connection screen elements
         this.connectionScreen = document.getElementById('connectionScreen');
@@ -435,9 +472,34 @@ class BattleshipGame {
         this.layoutSelection.style.display = 'none';
         this.roomWaiting.style.display = 'none';
         this.gameReady.style.display = 'block';
+        
+        // Show different content based on player role
+        const startButton = document.getElementById('startMultiplayerBtn');
+        const readyMessage = this.gameReady.querySelector('.waiting-message');
+        const player1Info = document.getElementById('player1Info');
+        const player2Info = document.getElementById('player2Info');
+        
+        if (this.playerNumber === 1) {
+            // Host can start the game
+            startButton.style.display = 'block';
+            startButton.disabled = false;
+            readyMessage.textContent = 'Both players connected! You can start the game.';
+            player1Info.querySelector('span').textContent = 'You (Host)';
+            player2Info.querySelector('span').textContent = 'Player 2';
+        } else {
+            // Joiner waits for host
+            startButton.style.display = 'none';
+            readyMessage.innerHTML = 'Both players connected! Waiting for host to start the game...<br><div class="waiting-dots" style="margin-top: 10px; font-size: 0.9rem;">⏳ Please wait</div>';
+            player1Info.querySelector('span').textContent = 'Host';
+            player2Info.querySelector('span').textContent = 'You (Player 2)';
+        }
     }
 
     async createRoom() {
+        // Show loading state
+        this.confirmLayoutBtn.disabled = true;
+        this.confirmLayoutBtn.textContent = '⏳ Creating Room...';
+        
         this.roomCode = this.generateRoomCode();
         this.playerNumber = 1;
 
@@ -449,7 +511,11 @@ class BattleshipGame {
         }
 
         try {
-            await this.database.ref(`rooms/${this.roomCode}`).set({
+            // Get metadata (including IP) before creating room
+            const metadata = await this.getRoomMetadata();
+            
+            const roomData = {
+                metadata: metadata,
                 players: {
                     1: {
                         connected: true,
@@ -468,7 +534,9 @@ class BattleshipGame {
                     rocksEnabled: this.rocksEnabled,
                     rockDensity: this.rockDensity
                 }
-            });
+            };
+
+            await this.database.ref(`rooms/${this.roomCode}`).set(roomData);
 
             this.displayRoomCode.textContent = this.roomCode;
             this.showWaitingRoom();
@@ -476,6 +544,9 @@ class BattleshipGame {
         } catch (error) {
             console.error('Error creating room:', error);
             alert('Failed to create room. Please try again.');
+            // Restore button state
+            this.confirmLayoutBtn.disabled = false;
+            this.confirmLayoutBtn.textContent = '⚔️ Create Battle';
         }
     }
 
@@ -486,18 +557,26 @@ class BattleshipGame {
             return;
         }
 
+        // Show loading state
+        this.joinGameBtn.disabled = true;
+        this.joinGameBtn.textContent = '⏳ Joining...';
+
         try {
             const roomRef = this.database.ref(`rooms/${roomCode}`);
             const snapshot = await roomRef.once('value');
             
             if (!snapshot.exists()) {
                 alert('Room not found. Please check the room code.');
+                this.joinGameBtn.disabled = false;
+                this.joinGameBtn.textContent = 'Join Game';
                 return;
             }
 
             const roomData = snapshot.val();
             if (roomData.players && roomData.players[2]) {
                 alert('Room is full');
+                this.joinGameBtn.disabled = false;
+                this.joinGameBtn.textContent = 'Join Game';
                 return;
             }
 
@@ -517,12 +596,17 @@ class BattleshipGame {
                 player2RockPositions = Array.from(rocks);
             }
 
+            // Get player 2 metadata
+            const player2Metadata = await this.getRoomMetadata();
+            
             await roomRef.child('players/2').set({
                 connected: true,
                 board: this.createEmptyBoard(layout, new Set(player2RockPositions)),
                 ships: this.ships,
                 shipsReady: false,
-                rockPositions: player2RockPositions
+                rockPositions: player2RockPositions,
+                joinedAt: new Date().toISOString(),
+                metadata: player2Metadata
             });
 
             // Keep connection screen visible until game starts
@@ -530,6 +614,9 @@ class BattleshipGame {
         } catch (error) {
             console.error('Error joining room:', error);
             alert('Failed to join room. Please try again.');
+            // Restore button state
+            this.joinGameBtn.disabled = false;
+            this.joinGameBtn.textContent = 'Join Game';
         }
     }
 
