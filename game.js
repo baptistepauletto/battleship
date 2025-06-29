@@ -525,7 +525,7 @@ class BattleshipGame {
                 rockPositions: player2RockPositions
             });
 
-            this.hideConnectionScreen();
+            // Keep connection screen visible until game starts
             this.listenForRoomUpdates();
         } catch (error) {
             console.error('Error joining room:', error);
@@ -556,9 +556,8 @@ class BattleshipGame {
         const bothConnected = players[1] && players[2] && players[1].connected && players[2].connected;
 
         if (bothConnected && this.gamePhase === 'connection') {
-            if (this.playerNumber === 1) {
-                this.showGameReady();
-            }
+            // Show "Both players connected" screen for both players
+            this.showGameReady();
         } else if (this.gamePhase === 'connection' && this.playerNumber === 1) {
             this.showWaitingRoom();
         }
