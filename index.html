@@ -466,7 +466,6 @@
                     <button class="btn btn-warning" id="rotateBtn">🔄 Rotate Ship</button>
                     <button class="btn btn-primary" id="randomBtn">🎲 Random Placement</button>
                     <button class="btn btn-success" id="readyBtn" disabled>✅ Ready to Battle</button>
-                    <button class="btn btn-warning" id="debugBattleBtn" style="display: none; background: red; color: white; font-size: 1.2rem;">🐛 FORCE BATTLE PHASE 🐛</button>
                 </div>
             </div>
         </div>
@@ -498,7 +497,6 @@
 
         class BattleshipGame {
             constructor() {
-                console.log('BattleshipGame constructor started');
                 this.isMultiplayer = true;
                 this.roomCode = null;
                 this.playerId = null;
@@ -537,15 +535,10 @@
                     winner: null
                 };
 
-                console.log('Initializing Firebase...');
                 this.initializeFirebase();
-                console.log('Initializing DOM...');
                 this.initializeDOM();
-                console.log('Binding events...');
                 this.bindEvents();
-                console.log('Showing connection screen...');
                 this.showConnectionScreen();
-                console.log('BattleshipGame constructor completed');
             }
 
             createEmptyBoard() {
@@ -574,7 +567,6 @@
             }
 
             initializeDOM() {
-                console.log('Initializing DOM elements...');
                 // Connection screen elements
                 this.connectionScreen = document.getElementById('connectionScreen');
                 this.createRoomBtn = document.getElementById('createRoomBtn');
@@ -590,15 +582,6 @@
                 this.startMultiplayerBtn = document.getElementById('startMultiplayerBtn');
                 this.connectionMenu = document.getElementById('connectionMenu');
 
-                // Debug: Check if critical elements were found
-                console.log('joinRoomBtn found:', !!this.joinRoomBtn);
-                console.log('connectionMenu found:', !!this.connectionMenu);
-                console.log('joinRoomSection found:', !!this.joinRoomSection);
-                
-                if (!this.joinRoomBtn) console.error('joinRoomBtn not found!');
-                if (!this.connectionMenu) console.error('connectionMenu not found!');
-                if (!this.joinRoomSection) console.error('joinRoomSection not found!');
-
                 // Game elements
                 this.gameStatus = document.getElementById('gameStatus');
                 this.setupPhase = document.getElementById('setupPhase');
@@ -606,7 +589,6 @@
                 this.rotateBtn = document.getElementById('rotateBtn');
                 this.randomBtn = document.getElementById('randomBtn');
                 this.readyBtn = document.getElementById('readyBtn');
-                this.debugBattleBtn = document.getElementById('debugBattleBtn');
                 this.player1Board = document.getElementById('player1Board');
                 this.player2Board = document.getElementById('player2Board');
                 this.player1Section = document.getElementById('player1Section');
@@ -615,22 +597,10 @@
 
             bindEvents() {
                 // Connection events
-                this.createRoomBtn.addEventListener('click', () => {
-                    console.log('Create room clicked');
-                    this.createRoom();
-                });
-                this.joinRoomBtn.addEventListener('click', () => {
-                    console.log('Join room clicked');
-                    this.showJoinRoom();
-                });
-                this.joinGameBtn.addEventListener('click', () => {
-                    console.log('Join game clicked');
-                    this.joinRoom();
-                });
-                this.backBtn.addEventListener('click', () => {
-                    console.log('Back clicked');
-                    this.showConnectionMenu();
-                });
+                this.createRoomBtn.addEventListener('click', () => this.createRoom());
+                this.joinRoomBtn.addEventListener('click', () => this.showJoinRoom());
+                this.joinGameBtn.addEventListener('click', () => this.joinRoom());
+                this.backBtn.addEventListener('click', () => this.showConnectionMenu());
                 this.cancelRoomBtn.addEventListener('click', () => this.cancelRoom());
                 this.startMultiplayerBtn.addEventListener('click', () => this.startMultiplayerGame());
 
@@ -652,11 +622,6 @@
 
                 this.readyBtn.addEventListener('click', () => {
                     this.confirmShipPlacement();
-                });
-
-                this.debugBattleBtn.addEventListener('click', () => {
-                    console.log('DEBUG: Forcing battle phase');
-                    this.forceBattlePhase();
                 });
 
                 // Room code input enter key
@@ -684,27 +649,9 @@
             }
 
             showJoinRoom() {
-                console.log('showJoinRoom called - now with fixed structure');
-                
-                if (this.connectionMenu) {
-                    this.connectionMenu.style.display = 'none';
-                    console.log('Hidden connection menu');
-                } else {
-                    console.error('connectionMenu element not found!');
-                }
-                
-                if (this.joinRoomSection) {
-                    this.joinRoomSection.style.display = 'block';
-                    console.log('Showed join room section');
-                } else {
-                    console.error('joinRoomSection element not found!');
-                }
-                
-                if (this.roomCodeInput) {
-                    this.roomCodeInput.focus();
-                } else {
-                    console.error('roomCodeInput element not found!');
-                }
+                this.connectionMenu.style.display = 'none';
+                this.joinRoomSection.style.display = 'block';
+                this.roomCodeInput.focus();
             }
 
             async createRoom() {
@@ -819,8 +766,6 @@
             handleRoomUpdate(roomData) {
                 if (!roomData || !roomData.players) return;
 
-                console.log('Room update received:', roomData);
-
                 // Check if both players are connected
                 const players = roomData.players;
                 const bothConnected = players[1] && players[2] && players[1].connected && players[2].connected;
@@ -835,11 +780,9 @@
 
                 // Update game state if game has started
                 if (roomData.gameState && roomData.gameState.gameStarted && this.gamePhase !== 'game' && this.gamePhase !== 'over') {
-                    console.log('Game started - transitioning to game phase');
                     this.gameState = roomData;
                     this.startGame();
                 } else if (roomData.gameState && roomData.gameState.battlePhase && this.gamePhase === 'setup') {
-                    console.log('Battle phase started - transitioning from setup to game');
                     this.gameState = roomData;
                     this.gamePhase = 'game';
                     this.setupPhase.style.display = 'none';
@@ -909,8 +852,6 @@
             renderBoard(boardElement, player) {
                 if (!this.gameState || !this.gameState.players) return;
                 
-                console.log(`Rendering board for player ${player}, current game phase: ${this.gamePhase}`);
-                
                 boardElement.innerHTML = '';
                 const board = this.gameState.players[player].board;
 
@@ -943,8 +884,6 @@
                                 if (cellValue === 2) cell.classList.add('hit');
                                 if (cellValue === -1) cell.classList.add('miss');
                             }
-                        } else {
-                            console.log(`Unknown game phase: ${this.gamePhase} for cell [${row},${col}]`);
                         }
 
                         boardElement.appendChild(cell);
@@ -953,12 +892,8 @@
             }
 
             syncGameState() {
-                console.log('Syncing game state - current phase:', this.gamePhase);
-                console.log('Game state from database:', this.gameState);
-                
                 // Check if we should be in battle phase but aren't
                 if (this.gameState && this.gameState.gameState && this.gameState.gameState.battlePhase && this.gamePhase !== 'game') {
-                    console.log('FORCING transition to battle phase');
                     this.gamePhase = 'game';
                     this.setupPhase.style.display = 'none';
                 }
@@ -1074,17 +1009,13 @@
 
             async confirmShipPlacement() {
                 try {
-                    console.log(`Player ${this.playerNumber} confirming ship placement`);
                     await this.database.ref(`rooms/${this.roomCode}/players/${this.playerNumber}/shipsReady`).set(true);
                     
                     // Check if both players are ready
                     const snapshot = await this.database.ref(`rooms/${this.roomCode}/players`).once('value');
                     const players = snapshot.val();
                     
-                    console.log('Players state after ship placement:', players);
-                    
                     if (players && players[1] && players[2] && players[1].shipsReady && players[2].shipsReady) {
-                        console.log('Both players ready - starting battle phase');
                         // Start the battle phase - only host (player 1) sets this
                         if (this.playerNumber === 1) {
                             await this.database.ref(`rooms/${this.roomCode}/gameState`).update({
@@ -1092,7 +1023,6 @@
                                 gameStarted: true,
                                 battlePhase: true
                             });
-                            console.log('Host started battle phase');
                         }
                         
                         this.gamePhase = 'game';
@@ -1100,9 +1030,7 @@
                         this.renderBoards();
                         this.updatePlayerSections();
                         this.updateStatus();
-                        console.log(`Player ${this.playerNumber} entered battle phase`);
                     } else {
-                        console.log('Waiting for opponent to finish ship placement');
                         this.gameStatus.textContent = 'Waiting for opponent to finish ship placement...';
                         this.setupPhase.style.display = 'none';
                     }
@@ -1133,50 +1061,26 @@
             }
 
             async handleAttack(e) {
-                console.log('Attack attempted by player', this.playerNumber);
-                console.log('Game phase:', this.gamePhase);
-                console.log('Game state:', this.gameState);
-                
-                if (this.gamePhase !== 'game' || !this.gameState || !this.gameState.gameState) {
-                    console.log('Attack blocked: game not in correct phase');
-                    return;
-                }
-                if (this.gameState.gameState.currentPlayer !== this.playerNumber) {
-                    console.log('Attack blocked: not current player turn');
-                    return;
-                }
-                if (this.gameState.gameState.gameOver) {
-                    console.log('Attack blocked: game over');
-                    return;
-                }
+                if (this.gamePhase !== 'game' || !this.gameState || !this.gameState.gameState) return;
+                if (this.gameState.gameState.currentPlayer !== this.playerNumber) return;
+                if (this.gameState.gameState.gameOver) return;
 
                 const row = parseInt(e.target.dataset.row);
                 const col = parseInt(e.target.dataset.col);
                 const targetPlayer = parseInt(e.target.dataset.player);
 
-                console.log(`Attacking target player ${targetPlayer} at position [${row}, ${col}]`);
-
-                if (targetPlayer === this.playerNumber) {
-                    console.log('Attack blocked: cannot attack own board');
-                    return; // Can't attack own board
-                }
+                if (targetPlayer === this.playerNumber) return; // Can't attack own board
 
                 const board = this.gameState.players[targetPlayer].board;
                 const cellValue = board[row][col];
 
-                console.log('Cell value:', cellValue);
-
-                if (cellValue === 2 || cellValue === -1) {
-                    console.log('Attack blocked: cell already attacked');
-                    return; // Already attacked
-                }
+                if (cellValue === 2 || cellValue === -1) return; // Already attacked
 
                 try {
                     let nextPlayer = this.playerNumber;
                     
                     if (cellValue === 1) {
                         // Hit!
-                        console.log('HIT! Updating database...');
                         await this.database.ref(`rooms/${this.roomCode}/players/${targetPlayer}/board/${row}/${col}`).set(2);
                         
                         // Check win condition
@@ -1184,26 +1088,21 @@
                         const updatedBoard = updatedSnapshot.val();
                         
                         if (this.checkWinConditionFromBoard(updatedBoard)) {
-                            console.log('GAME WON! Player', this.playerNumber, 'wins');
                             await this.database.ref(`rooms/${this.roomCode}/gameState`).update({
                                 gameOver: true,
                                 winner: this.playerNumber
                             });
                             return;
                         }
-                        console.log('Hit but game continues - same player gets another turn');
                         // Stay same player on hit
                     } else {
                         // Miss
-                        console.log('MISS! Switching turns...');
                         await this.database.ref(`rooms/${this.roomCode}/players/${targetPlayer}/board/${row}/${col}`).set(-1);
                         nextPlayer = this.playerNumber === 1 ? 2 : 1;
                     }
 
-                    console.log('Setting next player to:', nextPlayer);
                     // Update current player
                     await this.database.ref(`rooms/${this.roomCode}/gameState/currentPlayer`).set(nextPlayer);
-                    console.log('Database updated successfully');
                 } catch (error) {
                     console.error('Error handling attack:', error);
                 }
@@ -1303,52 +1202,27 @@
                 }
             }
 
-            async forceBattlePhase() {
-                console.log('FORCE BATTLE PHASE: Starting manual transition');
-                try {
-                    // Set battle phase in database
-                    await this.database.ref(`rooms/${this.roomCode}/gameState`).update({
-                        battlePhase: true,
-                        gameStarted: true,
-                        currentPlayer: 1
-                    });
-                    
-                    // Force local transition
-                    this.gamePhase = 'game';
-                    this.setupPhase.style.display = 'none';
-                    this.debugBattleBtn.style.display = 'none';
-                    this.renderBoards();
-                    this.updatePlayerSections();
-                    this.updateStatus();
-                    
-                    console.log('FORCE BATTLE PHASE: Completed');
-                } catch (error) {
-                    console.error('Error forcing battle phase:', error);
-                }
-            }
-
             updateStatus() {
-                console.log('Updating status - Game phase:', this.gamePhase);
-                if (this.gameState && this.gameState.gameState) {
-                    console.log('Current player in game state:', this.gameState.gameState.currentPlayer);
-                    console.log('This player number:', this.playerNumber);
+                // Auto-fix: if both players ready but no battle phase set, force it
+                if (this.gamePhase === 'setup' && this.gameState && this.gameState.players && 
+                    this.gameState.players[1] && this.gameState.players[2] &&
+                    this.gameState.players[1].shipsReady && this.gameState.players[2].shipsReady &&
+                    (!this.gameState.gameState || !this.gameState.gameState.battlePhase)) {
                     
-                    // Show debug button if stuck in setup but both players are ready
-                    if (this.gamePhase === 'setup' && this.gameState.players && 
-                        this.gameState.players[1] && this.gameState.players[2] &&
-                        this.gameState.players[1].shipsReady && this.gameState.players[2].shipsReady) {
-                        console.log('DETECTED: Both players ready but stuck in setup - showing debug button');
-                        console.log('Player 1 ships ready:', this.gameState.players[1].shipsReady);
-                        console.log('Player 2 ships ready:', this.gameState.players[2].shipsReady);
-                        console.log('Game state battle phase:', this.gameState.gameState ? this.gameState.gameState.battlePhase : 'undefined');
-                        this.debugBattleBtn.style.display = 'inline-block';
-                        
-                        // Auto-fix: if both ready but no battle phase set, force it
-                        if (!this.gameState.gameState || !this.gameState.gameState.battlePhase) {
-                            console.log('AUTO-FIX: Battle phase not set, forcing it now');
-                            setTimeout(() => this.forceBattlePhase(), 1000);
+                    setTimeout(async () => {
+                        if (this.playerNumber === 1) {
+                            await this.database.ref(`rooms/${this.roomCode}/gameState`).update({
+                                battlePhase: true,
+                                gameStarted: true,
+                                currentPlayer: 1
+                            });
                         }
-                    }
+                        this.gamePhase = 'game';
+                        this.setupPhase.style.display = 'none';
+                        this.renderBoards();
+                        this.updatePlayerSections();
+                        this.updateStatus();
+                    }, 1000);
                 }
                 
                 if (this.gamePhase === 'setup') {
@@ -1357,10 +1231,8 @@
                     const currentPlayer = this.gameState.gameState.currentPlayer;
                     if (currentPlayer === this.playerNumber) {
                         this.gameStatus.textContent = `Your turn - Click on opponent's board to attack!`;
-                        console.log('Status: Your turn');
                     } else {
                         this.gameStatus.textContent = `Opponent's turn - Wait for their move`;
-                        console.log('Status: Opponent turn');
                     }
                 } else if (this.gamePhase === 'connection') {
                     this.gameStatus.textContent = `Connecting to multiplayer...`;
@@ -1377,19 +1249,7 @@
             }
             
             try {
-                window.battleshipGame = new BattleshipGame();
-                
-                // Add global debug function
-                window.fixGame = function() {
-                    console.log('MANUAL FIX: Forcing battle phase from console');
-                    if (window.battleshipGame) {
-                        window.battleshipGame.forceBattlePhase();
-                    }
-                };
-                
-                console.log('🎮 Battleship Game Loaded!');
-                console.log('💡 If game gets stuck, type: fixGame() in console');
-                
+                new BattleshipGame();
             } catch (error) {
                 console.error('Failed to initialize game:', error);
                 alert('Failed to initialize game. Please refresh the page and try again.');
