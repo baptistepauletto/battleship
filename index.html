@@ -208,6 +208,44 @@
             box-shadow: 
                 0 0 10px rgba(0, 255, 65, 0.6),
                 inset 0 0 10px rgba(0, 255, 65, 0.2);
+            font-size: 18px;
+            position: relative;
+        }
+
+        .cell.ship::after {
+            content: '🚢';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 16px;
+            filter: hue-rotate(120deg) brightness(1.2);
+        }
+
+        /* Different ship types for variety */
+        .cell.ship.carrier::after {
+            content: '🛳️';
+            font-size: 14px;
+        }
+
+        .cell.ship.battleship::after {
+            content: '⚓';
+            font-size: 14px;
+        }
+
+        .cell.ship.cruiser::after {
+            content: '🚤';
+            font-size: 14px;
+        }
+
+        .cell.ship.submarine::after {
+            content: '🤿';
+            font-size: 12px;
+        }
+
+        .cell.ship.destroyer::after {
+            content: '⛵';
+            font-size: 14px;
         }
 
         .cell.hit {
@@ -223,6 +261,12 @@
             content: '💥';
             font-size: 18px;
             animation: hit-spin 0.6s ease-out;
+            z-index: 10;
+        }
+
+        .cell.hit.ship::after {
+            content: '🔥';
+            font-size: 16px;
         }
 
         .cell.miss {
@@ -380,6 +424,10 @@
 
         .phase-setup {
             text-align: center;
+        }
+
+        .phase-setup .player-section:not(.current-player) {
+            display: none;
         }
 
         .phase-game .player-section:not(.active) {
@@ -666,11 +714,11 @@
             <div class="ship-placement">
                 <h3>Available Ships:</h3>
                 <div class="ship-list" id="shipList">
-                    <div class="ship-item" data-ship="carrier" data-size="5">Carrier (5)</div>
-                    <div class="ship-item" data-ship="battleship" data-size="4">Battleship (4)</div>
-                    <div class="ship-item" data-ship="cruiser" data-size="3">Cruiser (3)</div>
-                    <div class="ship-item" data-ship="submarine" data-size="3">Submarine (3)</div>
-                    <div class="ship-item" data-ship="destroyer" data-size="2">Destroyer (2)</div>
+                    <div class="ship-item" data-ship="carrier" data-size="5">🛳️ Carrier (5)</div>
+                    <div class="ship-item" data-ship="battleship" data-size="4">⚓ Battleship (4)</div>
+                    <div class="ship-item" data-ship="cruiser" data-size="3">🚤 Cruiser (3)</div>
+                    <div class="ship-item" data-ship="submarine" data-size="3">🤿 Submarine (3)</div>
+                    <div class="ship-item" data-ship="destroyer" data-size="2">⛵ Destroyer (2)</div>
                 </div>
                 <div class="controls">
                     <button class="btn btn-warning" id="rotateBtn">🔄 Rotate Ship</button>
@@ -682,11 +730,11 @@
 
         <div class="game-boards">
             <div class="player-section" id="player1Section">
-                <h2 class="player-title">Player 1</h2>
+                <h2 class="player-title">🎯 Your Fleet</h2>
                 <div class="game-board" id="player1Board"></div>
             </div>
             <div class="player-section" id="player2Section">
-                <h2 class="player-title">Player 2</h2>
+                <h2 class="player-title">🎯 Enemy Fleet</h2>
                 <div class="game-board" id="player2Board"></div>
             </div>
         </div>
@@ -1036,6 +1084,7 @@
                 this.gamePhase = 'setup';
                 this.hideConnectionScreen();
                 this.renderBoards();
+                this.updatePlayerSections();
                 this.updateStatus();
             }
 
@@ -1077,6 +1126,10 @@
                         if (this.gamePhase === 'setup' && player === this.playerNumber) {
                             if (cellValue === 1) {
                                 cell.classList.add('ship');
+                                // Add consistent ship type class based on position for visual variety
+                                const shipTypeClasses = ['carrier', 'battleship', 'cruiser', 'submarine', 'destroyer'];
+                                const typeIndex = (row + col) % shipTypeClasses.length;
+                                cell.classList.add(shipTypeClasses[typeIndex]);
                             }
                             cell.addEventListener('click', (e) => this.handleCellClick(e));
                         } else if (this.gamePhase === 'game') {
@@ -1089,8 +1142,17 @@
                                 }
                             } else {
                                 // Own board - show ships, hits, and misses
-                                if (cellValue === 1) cell.classList.add('ship');
-                                if (cellValue === 2) cell.classList.add('hit');
+                                if (cellValue === 1) {
+                                    cell.classList.add('ship');
+                                    // Add consistent ship type class based on position for visual variety
+                                    const shipTypeClasses = ['carrier', 'battleship', 'cruiser', 'submarine', 'destroyer'];
+                                    const typeIndex = (row + col) % shipTypeClasses.length;
+                                    cell.classList.add(shipTypeClasses[typeIndex]);
+                                }
+                                if (cellValue === 2) {
+                                    cell.classList.add('hit');
+                                    cell.classList.add('ship'); // Keep ship class to show it was a ship hit
+                                }
                                 if (cellValue === -1) cell.classList.add('miss');
                             }
                         }
@@ -1125,7 +1187,7 @@
                 if (player !== this.playerNumber) return;
 
                 if (this.canPlaceShip(row, col, this.selectedShip.size, this.shipOrientation, player)) {
-                    await this.placeShip(row, col, this.selectedShip.size, this.shipOrientation, player);
+                    await this.placeShip(row, col, this.selectedShip.size, this.shipOrientation, player, this.selectedShip.type);
                     await this.markShipAsPlaced(this.selectedShip.type);
                     this.selectedShip = null;
                     this.checkReadyState();
@@ -1174,7 +1236,7 @@
                 return true;
             }
 
-            async placeShip(row, col, size, orientation, player) {
+            async placeShip(row, col, size, orientation, player, shipType = null) {
                 if (!this.gameState || !this.gameState.players) return;
                 
                 const updates = {};
@@ -1258,7 +1320,28 @@
             }
 
             updatePlayerSections() {
-                if (this.gamePhase === 'game' && this.gameState && this.gameState.gameState) {
+                // Update titles based on player perspective
+                const player1Title = this.player1Section.querySelector('.player-title');
+                const player2Title = this.player2Section.querySelector('.player-title');
+                
+                if (this.playerNumber === 1) {
+                    player1Title.textContent = '🎯 Your Fleet';
+                    player2Title.textContent = '🎯 Enemy Fleet';
+                } else {
+                    player1Title.textContent = '🎯 Enemy Fleet';
+                    player2Title.textContent = '🎯 Your Fleet';
+                }
+
+                if (this.gamePhase === 'setup') {
+                    // During setup, only show current player's board
+                    this.player1Section.classList.toggle('current-player', this.playerNumber === 1);
+                    this.player2Section.classList.toggle('current-player', this.playerNumber === 2);
+                } else if (this.gamePhase === 'game' && this.gameState && this.gameState.gameState) {
+                    // Remove setup classes
+                    this.player1Section.classList.remove('current-player');
+                    this.player2Section.classList.remove('current-player');
+                    
+                    // Show both boards and highlight active player
                     const currentPlayer = this.gameState.gameState.currentPlayer;
                     this.player1Section.classList.toggle('active', currentPlayer === 1);
                     this.player2Section.classList.toggle('active', currentPlayer === 2);
