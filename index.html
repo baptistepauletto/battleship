@@ -8,6 +8,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
         * {
             margin: 0;
             padding: 0;
@@ -15,24 +17,49 @@
         }
 
         body {
-            font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Orbitron', monospace;
+            background: #000000;
+            background-image: 
+                radial-gradient(circle at 25% 25%, #0d4f3c 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, #1a3d2e 0%, transparent 50%),
+                linear-gradient(45deg, #000000 0%, #0f2027 50%, #203a43 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            color: white;
+            color: #00ff41;
+            overflow-x: auto;
         }
 
         .game-container {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ff41;
+            border-radius: 15px;
             padding: 30px;
-            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
-            border: 1px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 
+                0 0 40px rgba(0, 255, 65, 0.4),
+                inset 0 0 30px rgba(0, 255, 65, 0.1);
             max-width: 1200px;
             width: 100%;
+            position: relative;
+        }
+
+        .game-container::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #00ff41, #ff0040, #00ff41);
+            border-radius: 15px;
+            z-index: -1;
+            animation: border-pulse 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes border-pulse {
+            from { opacity: 0.6; }
+            to { opacity: 1; }
         }
 
         .game-header {
@@ -42,15 +69,38 @@
 
         .game-title {
             font-size: 3rem;
-            font-weight: bold;
+            font-weight: 900;
             margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            color: #00ff41;
+            text-shadow: 
+                0 0 10px #00ff41,
+                0 0 20px #00ff41,
+                0 0 30px #00ff41;
+            letter-spacing: 3px;
+            animation: title-glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes title-glow {
+            from { text-shadow: 0 0 10px #00ff41, 0 0 20px #00ff41, 0 0 30px #00ff41; }
+            to { text-shadow: 0 0 15px #00ff41, 0 0 25px #00ff41, 0 0 35px #00ff41; }
         }
 
         .game-status {
             font-size: 1.2rem;
+            font-weight: 700;
             margin-bottom: 20px;
-            min-height: 30px;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #00ff41;
+            border-radius: 8px;
+            color: #00ff41;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
         }
 
         .game-boards {
@@ -64,67 +114,148 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            position: relative;
         }
 
         .player-title {
             font-size: 1.5rem;
             margin-bottom: 15px;
-            font-weight: bold;
+            font-weight: 700;
+            color: #00ff41;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px #00ff41;
         }
 
         .game-board {
             display: grid;
             grid-template-columns: repeat(10, 35px);
             grid-template-rows: repeat(10, 35px);
-            gap: 2px;
-            background: rgba(0, 0, 0, 0.2);
-            padding: 10px;
-            border-radius: 10px;
+            gap: 1px;
+            background: #000000;
+            padding: 15px;
+            border-radius: 12px;
+            border: 2px solid #00ff41;
+            box-shadow: 
+                0 0 30px rgba(0, 255, 65, 0.4),
+                inset 0 0 20px rgba(0, 255, 65, 0.1);
             margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .game-board::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                linear-gradient(90deg, transparent 49%, rgba(0, 255, 65, 0.1) 50%, transparent 51%),
+                linear-gradient(0deg, transparent 49%, rgba(0, 255, 65, 0.1) 50%, transparent 51%);
+            background-size: 10% 10%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .game-board::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 2px;
+            height: 50%;
+            background: linear-gradient(to bottom, #00ff41, transparent);
+            transform-origin: bottom center;
+            transform: translate(-50%, 0) rotate(0deg);
+            animation: radar-sweep 4s linear infinite;
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        @keyframes radar-sweep {
+            0% { transform: translate(-50%, 0) rotate(0deg); opacity: 1; }
+            100% { transform: translate(-50%, 0) rotate(360deg); opacity: 1; }
         }
 
         .cell {
             width: 35px;
             height: 35px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 4px;
+            background: rgba(0, 20, 0, 0.8);
+            border: 1px solid rgba(0, 255, 65, 0.3);
+            border-radius: 2px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: bold;
+            position: relative;
+            z-index: 2;
         }
 
         .cell:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transform: scale(1.05);
+            background: rgba(0, 255, 65, 0.2);
+            border-color: #00ff41;
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+            transform: scale(1.1);
         }
 
         .cell.ship {
-            background: rgba(0, 123, 255, 0.7);
-            border-color: #007bff;
+            background: rgba(0, 255, 65, 0.4);
+            border-color: #00ff41;
+            box-shadow: 
+                0 0 10px rgba(0, 255, 65, 0.6),
+                inset 0 0 10px rgba(0, 255, 65, 0.2);
         }
 
         .cell.hit {
-            background: rgba(220, 53, 69, 0.8);
-            border-color: #dc3545;
-        }
-
-        .cell.miss {
-            background: rgba(108, 117, 125, 0.6);
-            border-color: #6c757d;
+            background: rgba(255, 0, 64, 0.8);
+            border-color: #ff0040;
+            box-shadow: 
+                0 0 20px rgba(255, 0, 64, 0.8),
+                inset 0 0 10px rgba(255, 0, 64, 0.3);
+            animation: hit-explosion 0.6s ease-out;
         }
 
         .cell.hit::after {
             content: '💥';
             font-size: 18px;
+            animation: hit-spin 0.6s ease-out;
+        }
+
+        .cell.miss {
+            background: rgba(100, 100, 100, 0.6);
+            border-color: #666666;
         }
 
         .cell.miss::after {
-            content: '💧';
+            content: '○';
+            color: #cccccc;
             font-size: 16px;
+            font-weight: bold;
+        }
+
+        @keyframes hit-explosion {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 20px rgba(255, 0, 64, 0.8);
+            }
+            50% {
+                transform: scale(1.3);
+                box-shadow: 0 0 40px rgba(255, 0, 64, 1);
+            }
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 20px rgba(255, 0, 64, 0.8);
+            }
+        }
+
+        @keyframes hit-spin {
+            0% { transform: rotate(0deg) scale(0.5); }
+            50% { transform: rotate(180deg) scale(1.2); }
+            100% { transform: rotate(360deg) scale(1); }
         }
 
         .ship-placement {
@@ -141,27 +272,35 @@
         }
 
         .ship-item {
-            background: rgba(0, 123, 255, 0.7);
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff41;
             padding: 8px 16px;
-            border-radius: 20px;
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
-            border: 2px solid transparent;
+            color: #00ff41;
+            font-weight: 700;
+            font-family: 'Orbitron', monospace;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .ship-item:hover {
-            background: rgba(0, 123, 255, 0.9);
+            background: rgba(0, 255, 65, 0.1);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
             transform: scale(1.05);
         }
 
         .ship-item.selected {
-            border-color: #ffc107;
-            background: rgba(255, 193, 7, 0.8);
-            color: #000;
+            background: rgba(0, 255, 65, 0.2);
+            border-color: #00ff41;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.6);
         }
 
         .ship-item.placed {
-            background: rgba(108, 117, 125, 0.5);
+            background: rgba(0, 0, 0, 0.5);
+            border-color: #004d1a;
+            color: #004d1a;
             cursor: not-allowed;
             opacity: 0.6;
         }
@@ -174,52 +313,67 @@
         }
 
         .btn {
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff41;
+            color: #00ff41;
             padding: 12px 24px;
-            border: none;
-            border-radius: 25px;
+            border-radius: 8px;
             cursor: pointer;
             font-size: 1rem;
-            font-weight: bold;
+            font-weight: 700;
+            font-family: 'Orbitron', monospace;
             transition: all 0.3s ease;
             text-transform: uppercase;
             letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 65, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            background: rgba(0, 255, 65, 0.1);
+            box-shadow: 
+                0 0 20px rgba(0, 255, 65, 0.4),
+                inset 0 0 20px rgba(0, 255, 65, 0.1);
+            transform: translateY(-2px);
         }
 
         .btn-primary {
-            background: linear-gradient(45deg, #007bff, #0056b3);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: linear-gradient(45deg, #0056b3, #004085);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            border-color: #00ff41;
+            color: #00ff41;
         }
 
         .btn-success {
-            background: linear-gradient(45deg, #28a745, #1e7e34);
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: linear-gradient(45deg, #1e7e34, #155724);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            border-color: #00ff41;
+            color: #00ff41;
         }
 
         .btn-warning {
-            background: linear-gradient(45deg, #ffc107, #e0a800);
-            color: #000;
+            border-color: #ffff00;
+            color: #ffff00;
         }
 
         .btn-warning:hover {
-            background: linear-gradient(45deg, #e0a800, #d39e00);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            background: rgba(255, 255, 0, 0.1);
+            box-shadow: 0 0 20px rgba(255, 255, 0, 0.4);
         }
 
         .btn:disabled {
-            opacity: 0.6;
+            opacity: 0.4;
             cursor: not-allowed;
             transform: none !important;
         }
@@ -229,14 +383,16 @@
         }
 
         .phase-game .player-section:not(.active) {
-            opacity: 0.5;
+            opacity: 0.6;
             pointer-events: none;
         }
 
         .phase-game .player-section.active {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(0, 255, 65, 0.05);
+            border: 1px solid rgba(0, 255, 65, 0.3);
             border-radius: 15px;
             padding: 20px;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
         }
 
         .game-over {
@@ -245,7 +401,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.9);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -253,22 +409,25 @@
         }
 
         .game-over-modal {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ff41;
             padding: 40px;
             border-radius: 20px;
             text-align: center;
-            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            box-shadow: 0 0 40px rgba(0, 255, 65, 0.5);
         }
 
         .game-over-title {
             font-size: 3rem;
             margin-bottom: 20px;
-            color: #ffc107;
+            color: #00ff41;
+            text-shadow: 0 0 20px #00ff41;
         }
 
         .game-over-message {
             font-size: 1.5rem;
             margin-bottom: 30px;
+            color: #00ff41;
         }
 
         .connection-screen {
@@ -277,7 +436,10 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #000000;
+            background-image: 
+                radial-gradient(circle at 25% 25%, #0d4f3c 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, #1a3d2e 0%, transparent 50%);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -285,12 +447,11 @@
         }
 
         .connection-modal {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ff41;
+            border-radius: 15px;
             padding: 40px;
-            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
-            border: 1px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 0 0 40px rgba(0, 255, 65, 0.4);
             text-align: center;
             max-width: 500px;
             width: 90%;
@@ -299,7 +460,12 @@
         .connection-title {
             font-size: 2.5rem;
             margin-bottom: 20px;
-            color: white;
+            color: #00ff41;
+            font-family: 'Orbitron', monospace;
+            font-weight: 900;
+            text-shadow: 0 0 15px #00ff41;
+            text-transform: uppercase;
+            letter-spacing: 2px;
         }
 
         .connection-options {
@@ -311,32 +477,56 @@
         }
 
         .room-input {
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff41;
+            border-radius: 8px;
             padding: 12px 20px;
-            border: none;
-            border-radius: 25px;
             font-size: 1.2rem;
+            font-family: 'Share Tech Mono', monospace;
             text-align: center;
-            background: rgba(255, 255, 255, 0.9);
-            color: #333;
+            color: #00ff41;
             margin: 10px;
             min-width: 200px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .room-input::placeholder {
+            color: rgba(0, 255, 65, 0.5);
+        }
+
+        .room-input:focus {
+            outline: none;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.5);
         }
 
         .room-code {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #ffc107;
-            background: rgba(0, 0, 0, 0.3);
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: #00ff41;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff41;
             padding: 15px 25px;
-            border-radius: 15px;
+            border-radius: 12px;
             margin: 20px 0;
-            letter-spacing: 4px;
+            letter-spacing: 6px;
+            font-family: 'Share Tech Mono', monospace;
+            text-shadow: 0 0 15px #00ff41;
+            animation: code-pulse 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes code-pulse {
+            from { text-shadow: 0 0 15px #00ff41; }
+            to { text-shadow: 0 0 25px #00ff41, 0 0 35px #00ff41; }
         }
 
         .waiting-message {
             font-size: 1.2rem;
-            color: #fff;
+            color: #00ff41;
             margin: 20px 0;
+            font-family: 'Orbitron', monospace;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .player-status {
@@ -344,7 +534,8 @@
             justify-content: space-between;
             margin-top: 20px;
             padding: 15px;
-            background: rgba(0, 0, 0, 0.2);
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid #00ff41;
             border-radius: 10px;
         }
 
@@ -352,14 +543,17 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            font-family: 'Orbitron', monospace;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .player-info.connected {
-            color: #28a745;
+            color: #00ff41;
         }
 
         .player-info.disconnected {
-            color: #dc3545;
+            color: #ff0040;
         }
 
         .connection-indicator {
@@ -370,12 +564,19 @@
         }
 
         .connected .connection-indicator {
-            background: #28a745;
-            box-shadow: 0 0 10px #28a745;
+            background: #00ff41;
+            box-shadow: 0 0 10px #00ff41;
+            animation: indicator-pulse 2s ease-in-out infinite;
         }
 
         .disconnected .connection-indicator {
-            background: #dc3545;
+            background: #ff0040;
+            box-shadow: 0 0 10px #ff0040;
+        }
+
+        @keyframes indicator-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
         @media (max-width: 768px) {
@@ -396,6 +597,15 @@
             .cell {
                 width: 30px;
                 height: 30px;
+            }
+
+            .connection-title {
+                font-size: 2rem;
+            }
+
+            .room-code {
+                font-size: 2rem;
+                letter-spacing: 4px;
             }
         }
     </style>
@@ -483,7 +693,6 @@
     </div>
 
     <script>
-        // Firebase Configuration (You'll need to replace this with your own config)
         const firebaseConfig = {
             apiKey: "AIzaSyBO87pxL-XpGERh_GBSS_Xd8lQKeEKqZ9A",
             authDomain: "battleship-807ff.firebaseapp.com",
