@@ -426,7 +426,7 @@
             text-align: center;
         }
 
-        .phase-setup .player-section:not(.current-player) {
+        .game-container.setup-phase .player-section:not(.current-player) {
             display: none;
         }
 
@@ -798,6 +798,21 @@
                 this.showConnectionScreen();
             }
 
+            updateGamePhaseClasses() {
+                const gameContainer = document.querySelector('.game-container');
+                // Remove all phase classes
+                gameContainer.classList.remove('setup-phase', 'game-phase', 'connection-phase');
+                
+                // Add current phase class
+                if (this.gamePhase === 'setup') {
+                    gameContainer.classList.add('setup-phase');
+                } else if (this.gamePhase === 'game') {
+                    gameContainer.classList.add('game-phase');
+                } else if (this.gamePhase === 'connection') {
+                    gameContainer.classList.add('connection-phase');
+                }
+            }
+
             createEmptyBoard() {
                 return Array(10).fill().map(() => Array(10).fill(0));
             }
@@ -1042,6 +1057,7 @@
                 } else if (roomData.gameState && roomData.gameState.battlePhase && this.gamePhase === 'setup') {
                     this.gameState = roomData;
                     this.gamePhase = 'game';
+                    this.updateGamePhaseClasses();
                     this.setupPhase.style.display = 'none';
                     this.renderBoards();
                     this.updatePlayerSections();
@@ -1082,6 +1098,7 @@
 
             startGame() {
                 this.gamePhase = 'setup';
+                this.updateGamePhaseClasses();
                 this.hideConnectionScreen();
                 this.renderBoards();
                 this.updatePlayerSections();
@@ -1166,6 +1183,7 @@
                 // Check if we should be in battle phase but aren't
                 if (this.gameState && this.gameState.gameState && this.gameState.gameState.battlePhase && this.gamePhase !== 'game') {
                     this.gamePhase = 'game';
+                    this.updateGamePhaseClasses();
                     this.setupPhase.style.display = 'none';
                 }
                 
@@ -1297,6 +1315,7 @@
                         }
                         
                         this.gamePhase = 'game';
+                        this.updateGamePhaseClasses();
                         this.setupPhase.style.display = 'none';
                         this.renderBoards();
                         this.updatePlayerSections();
@@ -1423,6 +1442,7 @@
 
             endGame(winner) {
                 this.gamePhase = 'over';
+                this.updateGamePhaseClasses();
                 
                 const gameOverModal = document.createElement('div');
                 gameOverModal.className = 'game-over';
@@ -1510,6 +1530,7 @@
                             });
                         }
                         this.gamePhase = 'game';
+                        this.updateGamePhaseClasses();
                         this.setupPhase.style.display = 'none';
                         this.renderBoards();
                         this.updatePlayerSections();
