@@ -10,6 +10,112 @@ const firebaseConfig = {
     measurementId: "G-3HN995NF5T"
 };
 
+// Map Layout Definitions
+const MAP_LAYOUTS = {
+    classic: {
+        name: "🏛️ Classic",
+        description: "Traditional 10x10 square",
+        width: 10,
+        height: 10,
+        validCells: null, // null means all cells are valid
+        preview: "⬜⬜⬜⬜⬜<br>⬜⬜⬜⬜⬜<br>⬜⬜⬜⬜⬜<br>⬜⬜⬜⬜⬜<br>⬜⬜⬜⬜⬜"
+    },
+    rectangle: {
+        name: "📐 Rectangle",
+        description: "Wide 12x8 battlefield", 
+        width: 12,
+        height: 8,
+        validCells: null,
+        preview: "⬜⬜⬜⬜⬜⬜<br>⬜⬜⬜⬜⬜⬜<br>⬜⬜⬜⬜⬜⬜<br>⬜⬜⬜⬜⬜⬜"
+    },
+    ring: {
+        name: "💍 Ring",
+        description: "Hollow center battlefield",
+        width: 10,
+        height: 10,
+        validCells: new Set(),
+        preview: "⬜⬜⬜⬜⬜<br>⬜⬛⬛⬛⬜<br>⬜⬛⬛⬛⬜<br>⬜⬛⬛⬛⬜<br>⬜⬜⬜⬜⬜"
+    },
+    cross: {
+        name: "✝️ Cross",
+        description: "Plus-shaped arena",
+        width: 10,
+        height: 10,
+        validCells: new Set(),
+        preview: "⬛⬛⬜⬜⬜<br>⬛⬛⬜⬜⬜<br>⬜⬜⬜⬜⬜<br>⬛⬛⬜⬜⬜<br>⬛⬛⬜⬜⬜"
+    },
+    diamond: {
+        name: "💎 Diamond",
+        description: "Diamond-shaped field",
+        width: 11,
+        height: 11,
+        validCells: new Set(),
+        preview: "⬛⬛⬜⬛⬛<br>⬛⬜⬜⬜⬛<br>⬜⬜⬜⬜⬜<br>⬛⬜⬜⬜⬛<br>⬛⬛⬜⬛⬛"
+    },
+    fortress: {
+        name: "🏰 Fortress",
+        description: "Castle walls layout",
+        width: 10,
+        height: 10,
+        validCells: new Set(),
+        preview: "⬜⬜⬜⬜⬜<br>⬜⬛⬛⬛⬜<br>⬜⬛⬜⬛⬜<br>⬜⬛⬛⬛⬜<br>⬜⬜⬜⬜⬜"
+    }
+};
+
+// Initialize valid cells for complex layouts
+function initializeMapLayouts() {
+    // Ring layout - hollow center
+    for (let row = 0; row < 10; row++) {
+        for (let col = 0; col < 10; col++) {
+            if (!(row >= 3 && row <= 6 && col >= 3 && col <= 6)) {
+                MAP_LAYOUTS.ring.validCells.add(`${row},${col}`);
+            }
+        }
+    }
+
+    // Cross layout
+    for (let row = 0; row < 10; row++) {
+        for (let col = 0; col < 10; col++) {
+            if ((row >= 3 && row <= 6) || (col >= 3 && col <= 6)) {
+                MAP_LAYOUTS.cross.validCells.add(`${row},${col}`);
+            }
+        }
+    }
+
+    // Diamond layout
+    const center = 5;
+    for (let row = 0; row < 11; row++) {
+        for (let col = 0; col < 11; col++) {
+            const distance = Math.abs(row - center) + Math.abs(col - center);
+            if (distance <= 5) {
+                MAP_LAYOUTS.diamond.validCells.add(`${row},${col}`);
+            }
+        }
+    }
+
+    // Fortress layout - outer ring with corner bastions
+    for (let row = 0; row < 10; row++) {
+        for (let col = 0; col < 10; col++) {
+            // Outer border
+            if (row === 0 || row === 9 || col === 0 || col === 9) {
+                MAP_LAYOUTS.fortress.validCells.add(`${row},${col}`);
+            }
+            // Inner safe zone corners
+            else if ((row >= 2 && row <= 3 && col >= 2 && col <= 3) ||
+                     (row >= 2 && row <= 3 && col >= 6 && col <= 7) ||
+                     (row >= 6 && row <= 7 && col >= 2 && col <= 3) ||
+                     (row >= 6 && row <= 7 && col >= 6 && col <= 7)) {
+                MAP_LAYOUTS.fortress.validCells.add(`${row},${col}`);
+            }
+            // Center corridor
+            else if ((row >= 4 && row <= 5 && col >= 1 && col <= 8) ||
+                     (col >= 4 && col <= 5 && row >= 1 && row <= 8)) {
+                MAP_LAYOUTS.fortress.validCells.add(`${row},${col}`);
+            }
+        }
+    }
+}
+
 class BattleshipGame {
     constructor() {
         this.isMultiplayer = true;
@@ -20,6 +126,7 @@ class BattleshipGame {
         this.gamePhase = 'connection'; // 'connection', 'setup', 'game', 'over'
         this.selectedShip = null;
         this.shipOrientation = 'horizontal';
+        this.selectedLayout = 'classic'; // Default layout
         
         this.ships = {
             carrier: { size: 5, placed: false },
@@ -47,9 +154,11 @@ class BattleshipGame {
             currentPlayer: 1,
             gameStarted: false,
             gameOver: false,
-            winner: null
+            winner: null,
+            layout: 'classic' // Default layout
         };
 
+        initializeMapLayouts();
         this.initializeFirebase();
         this.initializeDOM();
         this.bindEvents();
@@ -71,8 +180,22 @@ class BattleshipGame {
         }
     }
 
-    createEmptyBoard() {
-        return Array(10).fill().map(() => Array(10).fill(0));
+    createEmptyBoard(layout = 'classic') {
+        const layoutConfig = MAP_LAYOUTS[layout];
+        const board = Array(layoutConfig.height).fill().map(() => Array(layoutConfig.width).fill(0));
+        
+        // Mark invalid cells as -2 (blocked)
+        if (layoutConfig.validCells) {
+            for (let row = 0; row < layoutConfig.height; row++) {
+                for (let col = 0; col < layoutConfig.width; col++) {
+                    if (!layoutConfig.validCells.has(`${row},${col}`)) {
+                        board[row][col] = -2; // Blocked cell
+                    }
+                }
+            }
+        }
+        
+        return board;
     }
 
     initializeFirebase() {
@@ -111,6 +234,10 @@ class BattleshipGame {
         this.gameReady = document.getElementById('gameReady');
         this.startMultiplayerBtn = document.getElementById('startMultiplayerBtn');
         this.connectionMenu = document.getElementById('connectionMenu');
+        this.layoutSelection = document.getElementById('layoutSelection');
+        this.layoutGrid = document.getElementById('layoutGrid');
+        this.backToMenuBtn = document.getElementById('backToMenuBtn');
+        this.confirmLayoutBtn = document.getElementById('confirmLayoutBtn');
 
         // Game elements
         this.gameStatus = document.getElementById('gameStatus');
@@ -127,10 +254,12 @@ class BattleshipGame {
 
     bindEvents() {
         // Connection events
-        this.createRoomBtn.addEventListener('click', () => this.createRoom());
+        this.createRoomBtn.addEventListener('click', () => this.showLayoutSelection());
         this.joinRoomBtn.addEventListener('click', () => this.showJoinRoom());
         this.joinGameBtn.addEventListener('click', () => this.joinRoom());
         this.backBtn.addEventListener('click', () => this.showConnectionMenu());
+        this.backToMenuBtn.addEventListener('click', () => this.showConnectionMenu());
+        this.confirmLayoutBtn.addEventListener('click', () => this.createRoom());
         this.cancelRoomBtn.addEventListener('click', () => this.cancelRoom());
         this.startMultiplayerBtn.addEventListener('click', () => this.startMultiplayerGame());
 
@@ -174,9 +303,47 @@ class BattleshipGame {
     showConnectionMenu() {
         this.connectionMenu.style.display = 'block';
         this.joinRoomSection.style.display = 'none';
+        this.layoutSelection.style.display = 'none';
         this.roomWaiting.style.display = 'none';
         this.gameReady.style.display = 'none';
         this.roomCodeInput.value = '';
+    }
+
+    showLayoutSelection() {
+        this.connectionMenu.style.display = 'none';
+        this.layoutSelection.style.display = 'block';
+        this.renderLayoutOptions();
+    }
+
+    renderLayoutOptions() {
+        this.layoutGrid.innerHTML = '';
+        
+        Object.entries(MAP_LAYOUTS).forEach(([key, layout]) => {
+            const layoutOption = document.createElement('div');
+            layoutOption.className = 'layout-option';
+            layoutOption.dataset.layout = key;
+            
+            layoutOption.innerHTML = `
+                <div class="layout-preview">${layout.preview}</div>
+                <div class="layout-info">
+                    <div class="layout-name">${layout.name}</div>
+                    <div class="layout-description">${layout.description}</div>
+                </div>
+            `;
+            
+            if (key === this.selectedLayout) {
+                layoutOption.classList.add('selected');
+            }
+            
+            layoutOption.addEventListener('click', () => {
+                document.querySelectorAll('.layout-option').forEach(opt => opt.classList.remove('selected'));
+                layoutOption.classList.add('selected');
+                this.selectedLayout = key;
+                this.confirmLayoutBtn.disabled = false;
+            });
+            
+            this.layoutGrid.appendChild(layoutOption);
+        });
     }
 
     showJoinRoom() {
@@ -188,6 +355,7 @@ class BattleshipGame {
     showWaitingRoom() {
         this.connectionMenu.style.display = 'none';
         this.joinRoomSection.style.display = 'none';
+        this.layoutSelection.style.display = 'none';
         this.roomWaiting.style.display = 'block';
         this.gameReady.style.display = 'none';
     }
@@ -195,6 +363,7 @@ class BattleshipGame {
     showGameReady() {
         this.connectionMenu.style.display = 'none';
         this.joinRoomSection.style.display = 'none';
+        this.layoutSelection.style.display = 'none';
         this.roomWaiting.style.display = 'none';
         this.gameReady.style.display = 'block';
     }
@@ -208,7 +377,7 @@ class BattleshipGame {
                 players: {
                     1: {
                         connected: true,
-                        board: this.createEmptyBoard(),
+                        board: this.createEmptyBoard(this.selectedLayout),
                         ships: this.ships,
                         shipsReady: false
                     }
@@ -217,7 +386,8 @@ class BattleshipGame {
                     gameStarted: false,
                     currentPlayer: 1,
                     gameOver: false,
-                    winner: null
+                    winner: null,
+                    layout: this.selectedLayout
                 }
             });
 
@@ -254,10 +424,14 @@ class BattleshipGame {
 
             this.roomCode = roomCode;
             this.playerNumber = 2;
+            
+            // Get the layout from the room
+            const layout = roomData.gameState?.layout || 'classic';
+            this.selectedLayout = layout;
 
             await roomRef.child('players/2').set({
                 connected: true,
-                board: this.createEmptyBoard(),
+                board: this.createEmptyBoard(layout),
                 ships: this.ships,
                 shipsReady: false
             });
@@ -282,6 +456,11 @@ class BattleshipGame {
 
     handleRoomUpdate(roomData) {
         if (!roomData || !roomData.players) return;
+
+        // Update layout if it exists in room data
+        if (roomData.gameState && roomData.gameState.layout) {
+            this.selectedLayout = roomData.gameState.layout;
+        }
 
         // Check if both players are connected
         const players = roomData.players;
@@ -372,20 +551,30 @@ class BattleshipGame {
     renderBoard(boardElement, player) {
         if (!this.gameState || !this.gameState.players) return;
         
-        boardElement.innerHTML = '';
+        const layout = MAP_LAYOUTS[this.gameState.gameState?.layout || this.selectedLayout];
         const board = this.gameState.players[player].board;
 
-        for (let row = 0; row < 10; row++) {
-            for (let col = 0; col < 10; col++) {
+        // Set up the grid with the correct dimensions
+        boardElement.style.gridTemplateColumns = `repeat(${layout.width}, 35px)`;
+        boardElement.style.gridTemplateRows = `repeat(${layout.height}, 35px)`;
+        
+        boardElement.innerHTML = '';
+
+        for (let row = 0; row < layout.height; row++) {
+            for (let col = 0; col < layout.width; col++) {
                 const cell = document.createElement('div');
                 cell.className = 'cell';
                 cell.dataset.row = row;
                 cell.dataset.col = col;
                 cell.dataset.player = player;
 
-                const cellValue = board[row][col];
+                const cellValue = board[row] && board[row][col] !== undefined ? board[row][col] : 0;
                 
-                if (this.gamePhase === 'setup' && player === this.playerNumber) {
+                // Handle blocked cells
+                if (cellValue === -2) {
+                    cell.classList.add('blocked');
+                    cell.style.cursor = 'not-allowed';
+                } else if (this.gamePhase === 'setup' && player === this.playerNumber) {
                     if (cellValue === 1) {
                         cell.classList.add('ship');
                         // Add consistent ship type class based on position for visual variety
@@ -393,13 +582,15 @@ class BattleshipGame {
                         const typeIndex = (row + col) % shipTypeClasses.length;
                         cell.classList.add(shipTypeClasses[typeIndex]);
                     }
-                    cell.addEventListener('click', (e) => this.handleCellClick(e));
+                    if (cellValue !== -2) {
+                        cell.addEventListener('click', (e) => this.handleCellClick(e));
+                    }
                 } else if (this.gamePhase === 'game') {
                     if (player !== this.playerNumber) {
                         // Opponent's board - show hits and misses only
                         if (cellValue === 2) cell.classList.add('hit');
                         if (cellValue === -1) cell.classList.add('miss');
-                        if ((cellValue === 0 || cellValue === 1) && this.gameState.gameState && this.gameState.gameState.currentPlayer === this.playerNumber && !this.gameState.gameState.gameOver) {
+                        if ((cellValue === 0 || cellValue === 1) && this.gameState.gameState && this.gameState.gameState.currentPlayer === this.playerNumber && !this.gameState.gameState.gameOver && cellValue !== -2) {
                             cell.addEventListener('click', (e) => this.handleAttack(e));
                         }
                     } else {
@@ -461,13 +652,20 @@ class BattleshipGame {
     canPlaceShip(row, col, size, orientation, player) {
         if (!this.gameState || !this.gameState.players) return false;
         const board = this.gameState.players[player].board;
+        const layout = MAP_LAYOUTS[this.gameState.gameState?.layout || this.selectedLayout];
 
         for (let i = 0; i < size; i++) {
             const currentRow = orientation === 'horizontal' ? row : row + i;
             const currentCol = orientation === 'horizontal' ? col + i : col;
 
             // Check bounds
-            if (currentRow >= 10 || currentCol >= 10) return false;
+            if (currentRow >= layout.height || currentCol >= layout.width) return false;
+
+            // Check if cell exists and is valid
+            if (!board[currentRow] || board[currentRow][currentCol] === undefined) return false;
+            
+            // Check if cell is blocked
+            if (board[currentRow][currentCol] === -2) return false;
 
             // Check if cell is already occupied
             if (board[currentRow][currentCol] !== 0) return false;
@@ -477,8 +675,8 @@ class BattleshipGame {
                 for (let dc = -1; dc <= 1; dc++) {
                     const adjRow = currentRow + dr;
                     const adjCol = currentCol + dc;
-                    if (adjRow >= 0 && adjRow < 10 && adjCol >= 0 && adjCol < 10) {
-                        if (board[adjRow][adjCol] === 1) {
+                    if (adjRow >= 0 && adjRow < layout.height && adjCol >= 0 && adjCol < layout.width) {
+                        if (board[adjRow] && board[adjRow][adjCol] === 1) {
                             // Check if this adjacent ship cell is part of the current placement
                             let isPartOfCurrentShip = false;
                             for (let j = 0; j < size; j++) {
@@ -628,9 +826,9 @@ class BattleshipGame {
         if (targetPlayer === this.playerNumber) return; // Can't attack own board
 
         const board = this.gameState.players[targetPlayer].board;
-        const cellValue = board[row][col];
+        const cellValue = board[row] && board[row][col] !== undefined ? board[row][col] : 0;
 
-        if (cellValue === 2 || cellValue === -1) return; // Already attacked
+        if (cellValue === 2 || cellValue === -1 || cellValue === -2) return; // Already attacked or blocked
 
         try {
             let nextPlayer = this.playerNumber;
@@ -667,10 +865,12 @@ class BattleshipGame {
     checkWinConditionFromBoard(board) {
         if (!board) return false;
         
-        for (let row = 0; row < 10; row++) {
-            for (let col = 0; col < 10; col++) {
-                if (board[row] && board[row][col] === 1) {
-                    return false; // Still has unhit ship cells
+        for (let row = 0; row < board.length; row++) {
+            if (board[row]) {
+                for (let col = 0; col < board[row].length; col++) {
+                    if (board[row][col] === 1) {
+                        return false; // Still has unhit ship cells
+                    }
                 }
             }
         }
@@ -707,13 +907,17 @@ class BattleshipGame {
         if (!this.gameState || !this.gameState.players) return;
         
         const player = this.playerNumber;
+        const layout = MAP_LAYOUTS[this.gameState.gameState?.layout || this.selectedLayout];
         
         try {
             // Clear current ships
             const clearUpdates = {};
-            for (let row = 0; row < 10; row++) {
-                for (let col = 0; col < 10; col++) {
-                    clearUpdates[`rooms/${this.roomCode}/players/${player}/board/${row}/${col}`] = 0;
+            for (let row = 0; row < layout.height; row++) {
+                for (let col = 0; col < layout.width; col++) {
+                    // Only clear valid cells, keep blocked cells as -2
+                    if (!layout.validCells || layout.validCells.has(`${row},${col}`)) {
+                        clearUpdates[`rooms/${this.roomCode}/players/${player}/board/${row}/${col}`] = 0;
+                    }
                 }
             }
             
@@ -733,8 +937,8 @@ class BattleshipGame {
                 let attempts = 0;
                 
                 while (!placed && attempts < 100) {
-                    const row = Math.floor(Math.random() * 10);
-                    const col = Math.floor(Math.random() * 10);
+                    const row = Math.floor(Math.random() * layout.height);
+                    const col = Math.floor(Math.random() * layout.width);
                     const orientation = Math.random() < 0.5 ? 'horizontal' : 'vertical';
                     
                     if (this.canPlaceShip(row, col, shipSizes[i], orientation, player)) {
@@ -784,7 +988,8 @@ class BattleshipGame {
         }
         
         if (this.gamePhase === 'setup') {
-            this.gameStatus.textContent = `Place your ships on your board`;
+            const layoutName = MAP_LAYOUTS[this.gameState.gameState?.layout || this.selectedLayout].name;
+            this.gameStatus.textContent = `Place your ships on the ${layoutName} battlefield`;
         } else if (this.gamePhase === 'game' && this.gameState && this.gameState.gameState) {
             const currentPlayer = this.gameState.gameState.currentPlayer;
             if (currentPlayer === this.playerNumber) {

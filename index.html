@@ -23,6 +23,15 @@
                 </div>
             </div>
             
+            <div id="layoutSelection" style="display: none;">
+                <h3 style="color: #00ff41; margin-bottom: 20px; text-transform: uppercase; font-family: 'Orbitron', monospace;">🗺️ Choose Battlefield Layout</h3>
+                <div id="layoutGrid" class="layout-grid"></div>
+                <div style="display: flex; gap: 15px; justify-content: center; margin-top: 20px;">
+                    <button class="btn btn-success" id="confirmLayoutBtn" disabled>⚔️ Create Battle</button>
+                    <button class="btn btn-primary" id="backToMenuBtn">Back</button>
+                </div>
+            </div>
+            
             <div id="joinRoomSection" style="display: none;">
                 <h3 style="color: white; margin-bottom: 20px;">Enter Room Code</h3>
                 <input type="text" class="room-input" id="roomCodeInput" placeholder="Enter Room Code" maxlength="6" style="display: block; margin: 0 auto 20px auto;">

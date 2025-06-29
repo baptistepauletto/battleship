@@ -5,12 +5,13 @@ A modern, fully functional **multiplayer** Battleship web game built with HTML, 
 ## Features ✨
 
 - **🌐 Real-time Multiplayer**: Play with friends online using room codes
-- **🎨 Beautiful Modern UI**: Glass-morphism design with smooth animations
+- **🎨 Beautiful Modern UI**: Military radar theme with smooth animations
 - **🎮 Complete Gameplay**: Full battleship rules implementation
 - **🏠 Room System**: Create or join game rooms with 6-digit codes
+- **🗺️ Custom Map Layouts**: Choose from 6 different battlefield layouts (Classic, Rectangle, Ring, Cross, Diamond, Fortress)
 - **🚢 Interactive Ship Placement**: Click to place ships or use random placement
 - **🔄 Ship Rotation**: Rotate ships between horizontal and vertical orientations
-- **💥 Visual Feedback**: Clear hit/miss indicators with emojis
+- **💥 Visual Feedback**: Clear hit/miss indicators with ship emojis
 - **🏆 Win Detection**: Automatic game end when all ships are destroyed
 - **📱 Responsive Design**: Works on desktop and mobile devices
 - **🔄 Auto-Reconnection**: Handles connection issues gracefully
@@ -19,9 +20,16 @@ A modern, fully functional **multiplayer** Battleship web game built with HTML, 
 ## How to Play 🎮
 
 ### 1. Connection Phase
-1. **Create Room**: Click "Create Room" to generate a 6-digit room code
-2. **Join Room**: Enter a friend's room code to join their game
-3. **Wait for Connection**: Both players must be connected to start
+1. **Create Room**: Click "Create Room" to select a battlefield layout
+2. **Choose Layout**: Select from 6 exciting map layouts:
+   - 🏛️ **Classic**: Traditional 10x10 square battlefield
+   - 📐 **Rectangle**: Wide 12x8 rectangular arena
+   - 💍 **Ring**: Hollow center with outer combat zone
+   - ✝️ **Cross**: Plus-shaped strategic layout
+   - 💎 **Diamond**: Diamond-shaped tactical field
+   - 🏰 **Fortress**: Castle walls with corner bastions
+3. **Join Room**: Enter a friend's room code to join their chosen battlefield
+4. **Wait for Connection**: Both players must be connected to start
 
 ### 2. Ship Placement Phase
 Both players simultaneously place 5 ships on their boards:
@@ -41,6 +49,7 @@ Both players simultaneously place 5 ships on their boards:
 - 💥 = Hit (red) - Get another turn!
 - 💧 = Miss (gray) - Turn switches to opponent
 - First player to sink all opponent ships wins!
+- **Strategic Note**: Each layout offers unique tactical challenges - some layouts have blocked areas that change ship placement strategies!
 
 ## Getting Started 🚀
 
@@ -90,13 +99,27 @@ Player 1 Browser ←→ Firebase Realtime DB ←→ Player 2 Browser
 
 ## Game Rules 📋
 
-- 10x10 grid for each player
-- 5 ships of different sizes must be placed
+- Variable grid sizes depending on chosen layout (10x10 to 12x8)
+- 5 ships of different sizes must be placed (Carrier-5, Battleship-4, Cruiser-3, Submarine-3, Destroyer-2)
 - Ships cannot overlap or touch diagonally/adjacently
+- Ships cannot be placed on blocked/invalid cells (shown with ⛔)
 - Players alternate turns shooting at opponent's board
 - Hit = Get another turn, Miss = Turn switches
 - Game ends when all ships of one player are destroyed
 - Real-time synchronization of all actions
+
+## Map Layouts Strategy 🗺️
+
+Each battlefield layout offers unique strategic advantages:
+
+- **🏛️ Classic**: Balanced gameplay, perfect for beginners
+- **📐 Rectangle**: More horizontal space favors larger ships
+- **💍 Ring**: Forces ships to outer edges, creating chokepoints
+- **✝️ Cross**: Central corridor creates high-traffic attack zones
+- **💎 Diamond**: Tight space requires creative ship placement
+- **🏰 Fortress**: Corner bastions and walls create defensive positions
+
+**Host Advantage**: The room creator chooses the battlefield layout, giving them first knowledge of the terrain for strategic planning!
 
 ## Deployment Options 🌐
 
