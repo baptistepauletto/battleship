@@ -127,6 +127,9 @@ class BattleshipGame {
         this.selectedShip = null;
         this.shipOrientation = 'horizontal';
         this.selectedLayout = 'classic'; // Default layout
+        this.rocksEnabled = false;
+        this.rockDensity = 1; // 0=none, 1=few, 2=many, 3=lot
+        this.rockPositions = new Set();
         
         this.ships = {
             carrier: { size: 5, placed: false },
@@ -155,7 +158,10 @@ class BattleshipGame {
             gameStarted: false,
             gameOver: false,
             winner: null,
-            layout: 'classic' // Default layout
+            layout: 'classic', // Default layout
+            rocksEnabled: false,
+            rockDensity: 1,
+            rockPositions: []
         };
 
         initializeMapLayouts();
@@ -180,7 +186,7 @@ class BattleshipGame {
         }
     }
 
-    createEmptyBoard(layout = 'classic') {
+    createEmptyBoard(layout = 'classic', rocks = null) {
         const layoutConfig = MAP_LAYOUTS[layout];
         const board = Array(layoutConfig.height).fill().map(() => Array(layoutConfig.width).fill(0));
         
@@ -193,6 +199,16 @@ class BattleshipGame {
                     }
                 }
             }
+        }
+        
+        // Add rocks as -3 (rock cells)
+        if (rocks) {
+            rocks.forEach(position => {
+                const [row, col] = position.split(',').map(Number);
+                if (row >= 0 && row < layoutConfig.height && col >= 0 && col < layoutConfig.width) {
+                    board[row][col] = -3; // Rock cell
+                }
+            });
         }
         
         return board;
@@ -238,6 +254,10 @@ class BattleshipGame {
         this.layoutGrid = document.getElementById('layoutGrid');
         this.backToMenuBtn = document.getElementById('backToMenuBtn');
         this.confirmLayoutBtn = document.getElementById('confirmLayoutBtn');
+        this.rocksEnabledCheckbox = document.getElementById('rocksEnabled');
+        this.rockControlsDiv = document.getElementById('rockControls');
+        this.rockDensitySlider = document.getElementById('rockDensity');
+        this.rockPreviewText = document.getElementById('rockPreview');
 
         // Game elements
         this.gameStatus = document.getElementById('gameStatus');
@@ -282,6 +302,10 @@ class BattleshipGame {
         this.readyBtn.addEventListener('click', () => {
             this.confirmShipPlacement();
         });
+
+        // Rock controls events
+        this.rocksEnabledCheckbox.addEventListener('change', () => this.handleRockToggle());
+        this.rockDensitySlider.addEventListener('input', () => this.handleRockDensityChange());
 
         // Room code input enter key
         this.roomCodeInput.addEventListener('keypress', (e) => {
@@ -346,6 +370,49 @@ class BattleshipGame {
         });
     }
 
+    handleRockToggle() {
+        this.rocksEnabled = this.rocksEnabledCheckbox.checked;
+        this.rockControlsDiv.style.display = this.rocksEnabled ? 'block' : 'none';
+    }
+
+    handleRockDensityChange() {
+        this.rockDensity = parseInt(this.rockDensitySlider.value);
+        const densityLabels = ['No Rocks', 'A Few Rocks', 'Many Rocks', 'A Lot of Rocks'];
+        this.rockPreviewText.textContent = densityLabels[this.rockDensity];
+    }
+
+    generateRockPositions(layout, density) {
+        const rocks = new Set();
+        if (density === 0) return rocks;
+
+        const layoutConfig = MAP_LAYOUTS[layout];
+        const totalCells = layoutConfig.validCells ? 
+            layoutConfig.validCells.size : 
+            layoutConfig.width * layoutConfig.height;
+
+        // Rock density percentages: few=5%, many=10%, lot=15%
+        const densityPercentages = [0, 0.05, 0.10, 0.15];
+        const maxRocks = Math.floor(totalCells * densityPercentages[density]);
+
+        let attempts = 0;
+        while (rocks.size < maxRocks && attempts < maxRocks * 3) {
+            const row = Math.floor(Math.random() * layoutConfig.height);
+            const col = Math.floor(Math.random() * layoutConfig.width);
+            const position = `${row},${col}`;
+
+            // Check if position is valid for this layout
+            if (layoutConfig.validCells && !layoutConfig.validCells.has(position)) {
+                attempts++;
+                continue;
+            }
+
+            rocks.add(position);
+            attempts++;
+        }
+
+        return rocks;
+    }
+
     showJoinRoom() {
         this.connectionMenu.style.display = 'none';
         this.joinRoomSection.style.display = 'block';
@@ -372,12 +439,19 @@ class BattleshipGame {
         this.roomCode = this.generateRoomCode();
         this.playerNumber = 1;
 
+        // Generate rock positions if enabled
+        let rockPositions = [];
+        if (this.rocksEnabled) {
+            const rocks = this.generateRockPositions(this.selectedLayout, this.rockDensity);
+            rockPositions = Array.from(rocks);
+        }
+
         try {
             await this.database.ref(`rooms/${this.roomCode}`).set({
                 players: {
                     1: {
                         connected: true,
-                        board: this.createEmptyBoard(this.selectedLayout),
+                        board: this.createEmptyBoard(this.selectedLayout, new Set(rockPositions)),
                         ships: this.ships,
                         shipsReady: false
                     }
@@ -387,7 +461,10 @@ class BattleshipGame {
                     currentPlayer: 1,
                     gameOver: false,
                     winner: null,
-                    layout: this.selectedLayout
+                    layout: this.selectedLayout,
+                    rocksEnabled: this.rocksEnabled,
+                    rockDensity: this.rockDensity,
+                    rockPositions: rockPositions
                 }
             });
 
@@ -425,13 +502,14 @@ class BattleshipGame {
             this.roomCode = roomCode;
             this.playerNumber = 2;
             
-            // Get the layout from the room
+            // Get the layout and rock configuration from the room
             const layout = roomData.gameState?.layout || 'classic';
+            const rockPositions = roomData.gameState?.rockPositions || [];
             this.selectedLayout = layout;
 
             await roomRef.child('players/2').set({
                 connected: true,
-                board: this.createEmptyBoard(layout),
+                board: this.createEmptyBoard(layout, new Set(rockPositions)),
                 ships: this.ships,
                 shipsReady: false
             });
@@ -570,9 +648,12 @@ class BattleshipGame {
 
                 const cellValue = board[row] && board[row][col] !== undefined ? board[row][col] : 0;
                 
-                // Handle blocked cells
+                // Handle blocked cells and rocks
                 if (cellValue === -2) {
                     cell.classList.add('blocked');
+                    cell.style.cursor = 'not-allowed';
+                } else if (cellValue === -3) {
+                    cell.classList.add('rock');
                     cell.style.cursor = 'not-allowed';
                 } else if (this.gamePhase === 'setup' && player === this.playerNumber) {
                     if (cellValue === 1) {
@@ -664,8 +745,8 @@ class BattleshipGame {
             // Check if cell exists and is valid
             if (!board[currentRow] || board[currentRow][currentCol] === undefined) return false;
             
-            // Check if cell is blocked
-            if (board[currentRow][currentCol] === -2) return false;
+            // Check if cell is blocked or has a rock
+            if (board[currentRow][currentCol] === -2 || board[currentRow][currentCol] === -3) return false;
 
             // Check if cell is already occupied
             if (board[currentRow][currentCol] !== 0) return false;
@@ -828,7 +909,7 @@ class BattleshipGame {
         const board = this.gameState.players[targetPlayer].board;
         const cellValue = board[row] && board[row][col] !== undefined ? board[row][col] : 0;
 
-        if (cellValue === 2 || cellValue === -1 || cellValue === -2) return; // Already attacked or blocked
+        if (cellValue === 2 || cellValue === -1 || cellValue === -2 || cellValue === -3) return; // Already attacked, blocked, or rock
 
         try {
             let nextPlayer = this.playerNumber;

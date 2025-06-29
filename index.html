@@ -25,7 +25,36 @@
             
             <div id="layoutSelection" style="display: none;">
                 <h3 style="color: #00ff41; margin-bottom: 20px; text-transform: uppercase; font-family: 'Orbitron', monospace;">🗺️ Choose Battlefield Layout</h3>
-                <div id="layoutGrid" class="layout-grid"></div>
+                
+                <div class="layout-scroller">
+                    <div id="layoutGrid" class="layout-grid-horizontal"></div>
+                </div>
+                
+                <div class="rock-options">
+                    <div class="rock-toggle">
+                        <label class="rock-checkbox-label">
+                            <input type="checkbox" id="rocksEnabled" class="rock-checkbox">
+                            <span class="checkmark">⛰️ Add Rocks to Battlefield</span>
+                        </label>
+                    </div>
+                    
+                    <div id="rockControls" class="rock-controls" style="display: none;">
+                        <div class="rock-slider-container">
+                            <label class="rock-slider-label">Rock Density:</label>
+                            <div class="rock-slider-wrapper">
+                                <input type="range" id="rockDensity" class="rock-slider" min="0" max="3" value="1" step="1">
+                                <div class="rock-labels">
+                                    <span>No Rocks</span>
+                                    <span>A Few</span>
+                                    <span>Many</span>
+                                    <span>A Lot</span>
+                                </div>
+                            </div>
+                            <div id="rockPreview" class="rock-preview">A Few Rocks</div>
+                        </div>
+                    </div>
+                </div>
+                
                 <div style="display: flex; gap: 15px; justify-content: center; margin-top: 20px;">
                     <button class="btn btn-success" id="confirmLayoutBtn" disabled>⚔️ Create Battle</button>
                     <button class="btn btn-primary" id="backToMenuBtn">Back</button>
