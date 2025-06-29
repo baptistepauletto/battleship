@@ -439,11 +439,11 @@ class BattleshipGame {
         this.roomCode = this.generateRoomCode();
         this.playerNumber = 1;
 
-        // Generate rock positions if enabled
-        let rockPositions = [];
+        // Generate rock positions for player 1 if enabled
+        let player1RockPositions = [];
         if (this.rocksEnabled) {
             const rocks = this.generateRockPositions(this.selectedLayout, this.rockDensity);
-            rockPositions = Array.from(rocks);
+            player1RockPositions = Array.from(rocks);
         }
 
         try {
@@ -451,9 +451,10 @@ class BattleshipGame {
                 players: {
                     1: {
                         connected: true,
-                        board: this.createEmptyBoard(this.selectedLayout, new Set(rockPositions)),
+                        board: this.createEmptyBoard(this.selectedLayout, new Set(player1RockPositions)),
                         ships: this.ships,
-                        shipsReady: false
+                        shipsReady: false,
+                        rockPositions: player1RockPositions
                     }
                 },
                 gameState: {
@@ -463,8 +464,7 @@ class BattleshipGame {
                     winner: null,
                     layout: this.selectedLayout,
                     rocksEnabled: this.rocksEnabled,
-                    rockDensity: this.rockDensity,
-                    rockPositions: rockPositions
+                    rockDensity: this.rockDensity
                 }
             });
 
@@ -504,14 +504,23 @@ class BattleshipGame {
             
             // Get the layout and rock configuration from the room
             const layout = roomData.gameState?.layout || 'classic';
-            const rockPositions = roomData.gameState?.rockPositions || [];
+            const rocksEnabled = roomData.gameState?.rocksEnabled || false;
+            const rockDensity = roomData.gameState?.rockDensity || 1;
             this.selectedLayout = layout;
+
+            // Generate unique rock positions for player 2
+            let player2RockPositions = [];
+            if (rocksEnabled) {
+                const rocks = this.generateRockPositions(layout, rockDensity);
+                player2RockPositions = Array.from(rocks);
+            }
 
             await roomRef.child('players/2').set({
                 connected: true,
-                board: this.createEmptyBoard(layout, new Set(rockPositions)),
+                board: this.createEmptyBoard(layout, new Set(player2RockPositions)),
                 ships: this.ships,
-                shipsReady: false
+                shipsReady: false,
+                rockPositions: player2RockPositions
             });
 
             this.hideConnectionScreen();
@@ -653,8 +662,11 @@ class BattleshipGame {
                     cell.classList.add('blocked');
                     cell.style.cursor = 'not-allowed';
                 } else if (cellValue === -3) {
-                    cell.classList.add('rock');
-                    cell.style.cursor = 'not-allowed';
+                    // Only show rocks on own board, never on opponent's board until discovered
+                    if (player === this.playerNumber) {
+                        cell.classList.add('rock');
+                        cell.style.cursor = 'not-allowed';
+                    }
                 } else if (this.gamePhase === 'setup' && player === this.playerNumber) {
                     if (cellValue === 1) {
                         cell.classList.add('ship');
@@ -668,10 +680,14 @@ class BattleshipGame {
                     }
                 } else if (this.gamePhase === 'game') {
                     if (player !== this.playerNumber) {
-                        // Opponent's board - show hits and misses only
+                        // Opponent's board - show hits, misses, and discovered rocks
                         if (cellValue === 2) cell.classList.add('hit');
                         if (cellValue === -1) cell.classList.add('miss');
-                        if ((cellValue === 0 || cellValue === 1) && this.gameState.gameState && this.gameState.gameState.currentPlayer === this.playerNumber && !this.gameState.gameState.gameOver && cellValue !== -2) {
+                        if (cellValue === -4) {
+                            cell.classList.add('rock');
+                            cell.classList.add('miss'); // Style as a miss since it was attacked
+                        }
+                        if ((cellValue === 0 || cellValue === 1 || cellValue === -3) && this.gameState.gameState && this.gameState.gameState.currentPlayer === this.playerNumber && !this.gameState.gameState.gameOver && cellValue !== -2) {
                             cell.addEventListener('click', (e) => this.handleAttack(e));
                         }
                     } else {
@@ -909,7 +925,7 @@ class BattleshipGame {
         const board = this.gameState.players[targetPlayer].board;
         const cellValue = board[row] && board[row][col] !== undefined ? board[row][col] : 0;
 
-        if (cellValue === 2 || cellValue === -1 || cellValue === -2 || cellValue === -3) return; // Already attacked, blocked, or rock
+        if (cellValue === 2 || cellValue === -1 || cellValue === -2 || cellValue === -4) return; // Already attacked, blocked, or discovered rock
 
         try {
             let nextPlayer = this.playerNumber;
@@ -930,8 +946,12 @@ class BattleshipGame {
                     return;
                 }
                 // Stay same player on hit
+            } else if (cellValue === -3) {
+                // Hit a rock - treat as miss but reveal the rock
+                await this.database.ref(`rooms/${this.roomCode}/players/${targetPlayer}/board/${row}/${col}`).set(-4); // -4 = discovered rock
+                nextPlayer = this.playerNumber === 1 ? 2 : 1;
             } else {
-                // Miss
+                // Miss (water)
                 await this.database.ref(`rooms/${this.roomCode}/players/${targetPlayer}/board/${row}/${col}`).set(-1);
                 nextPlayer = this.playerNumber === 1 ? 2 : 1;
             }
@@ -991,12 +1011,14 @@ class BattleshipGame {
         const layout = MAP_LAYOUTS[this.gameState.gameState?.layout || this.selectedLayout];
         
         try {
-            // Clear current ships
+            // Clear current ships but preserve blocked cells and rocks
             const clearUpdates = {};
+            const currentBoard = this.gameState.players[player].board;
             for (let row = 0; row < layout.height; row++) {
                 for (let col = 0; col < layout.width; col++) {
-                    // Only clear valid cells, keep blocked cells as -2
-                    if (!layout.validCells || layout.validCells.has(`${row},${col}`)) {
+                    const currentValue = currentBoard[row] && currentBoard[row][col] !== undefined ? currentBoard[row][col] : 0;
+                    // Only clear ship cells (1), preserve blocked (-2) and rock (-3) cells
+                    if (currentValue === 1) {
                         clearUpdates[`rooms/${this.roomCode}/players/${player}/board/${row}/${col}`] = 0;
                     }
                 }

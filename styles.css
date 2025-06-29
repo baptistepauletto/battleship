@@ -227,6 +227,18 @@ body {
     box-shadow: none;
 }
 
+.cell.rock.miss {
+    background: rgba(80, 80, 80, 0.6);
+    border-color: #888888;
+    opacity: 0.8;
+}
+
+.cell.rock.miss::after {
+    content: '🪨';
+    font-size: 12px;
+    opacity: 0.7;
+}
+
 .cell.ship {
     background: rgba(0, 255, 65, 0.4);
     border-color: #00ff41;
