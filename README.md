@@ -59,11 +59,25 @@ Both players simultaneously place 5 ships on their boards:
 
 - **Frontend**: Pure HTML, CSS, and JavaScript (no frameworks)
 - **Backend**: Firebase Realtime Database for multiplayer sync
-- **Single file**: Everything contained in `index.html` + Firebase config
+- **Modular structure**: Separated into HTML, CSS, and JS files for maintainability
 - **Modern features**: CSS Grid, Flexbox, CSS animations, WebRTC-like experience
 - **Browser compatibility**: Works in all modern browsers
 - **Real-time**: Sub-second synchronization between players
 - **Scalable**: Supports unlimited concurrent games
+
+## Project Structure 📁
+
+```
+battleship/
+├── index.html          # Main HTML structure and layout
+├── styles.css          # All game styling, animations, and themes
+├── game.js             # Complete game logic and Firebase integration
+├── firebase-setup.md   # Step-by-step Firebase configuration guide
+├── test-guide.md       # Comprehensive testing instructions
+└── README.md           # This documentation
+```
+
+The codebase is organized into separate files for better maintainability while remaining deployment-friendly for static hosting platforms.
 
 ## Architecture 🏗️
 
