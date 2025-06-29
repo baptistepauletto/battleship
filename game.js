@@ -641,6 +641,8 @@ class BattleshipGame {
         
         const layout = MAP_LAYOUTS[this.gameState.gameState?.layout || this.selectedLayout];
         const board = this.gameState.players[player].board;
+        
+
 
         // Set up the grid with the correct dimensions
         boardElement.style.gridTemplateColumns = `repeat(${layout.width}, 35px)`;
@@ -658,16 +660,14 @@ class BattleshipGame {
 
                 const cellValue = board[row] && board[row][col] !== undefined ? board[row][col] : 0;
                 
-                // Handle blocked cells and rocks
+                // Handle blocked cells
                 if (cellValue === -2) {
                     cell.classList.add('blocked');
                     cell.style.cursor = 'not-allowed';
-                } else if (cellValue === -3) {
-                    // Only show rocks on own board, never on opponent's board until discovered
-                    if (player === this.playerNumber) {
-                        cell.classList.add('rock');
-                        cell.style.cursor = 'not-allowed';
-                    }
+                } else if (cellValue === -3 && player === this.playerNumber) {
+                    // Only show rocks on own board
+                    cell.classList.add('rock');
+                    cell.style.cursor = 'not-allowed';
                 } else if (this.gamePhase === 'setup' && player === this.playerNumber) {
                     if (cellValue === 1) {
                         cell.classList.add('ship');
@@ -951,6 +951,9 @@ class BattleshipGame {
                 // Hit a rock - treat as miss but reveal the rock
                 await this.database.ref(`rooms/${this.roomCode}/players/${targetPlayer}/board/${row}/${col}`).set(-4); // -4 = discovered rock
                 nextPlayer = this.playerNumber === 1 ? 2 : 1;
+                
+                // Show rock hit message
+                this.showRockHitMessage();
             } else {
                 // Miss (water)
                 await this.database.ref(`rooms/${this.roomCode}/players/${targetPlayer}/board/${row}/${col}`).set(-1);
@@ -1065,6 +1068,28 @@ class BattleshipGame {
         } catch (error) {
             console.error('Error with random placement:', error);
         }
+    }
+
+    showRockHitMessage() {
+        // Create temporary message overlay
+        const message = document.createElement('div');
+        message.className = 'rock-hit-message';
+        message.innerHTML = `
+            <div class="rock-hit-content">
+                <div class="rock-hit-icon">🪨💥</div>
+                <div class="rock-hit-text">Rock Discovered!</div>
+                <div class="rock-hit-subtext">You hit a hidden rock</div>
+            </div>
+        `;
+        
+        document.body.appendChild(message);
+        
+        // Remove message after animation
+        setTimeout(() => {
+            if (document.body.contains(message)) {
+                document.body.removeChild(message);
+            }
+        }, 2500);
     }
 
     updateStatus() {

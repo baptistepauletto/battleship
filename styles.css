@@ -228,15 +228,125 @@ body {
 }
 
 .cell.rock.miss {
-    background: rgba(80, 80, 80, 0.6);
-    border-color: #888888;
-    opacity: 0.8;
+    background: linear-gradient(135deg, rgba(80, 80, 80, 0.8) 0%, rgba(100, 100, 100, 0.6) 100%);
+    border: 2px solid #888888;
+    opacity: 1;
+    animation: rockDiscovered 1s ease-out;
 }
 
 .cell.rock.miss::after {
     content: '🪨';
-    font-size: 12px;
-    opacity: 0.7;
+    font-size: 14px;
+    opacity: 0.9;
+    filter: drop-shadow(0 0 3px rgba(136, 136, 136, 0.8));
+}
+
+@keyframes rockDiscovered {
+    0% {
+        transform: scale(0.8);
+        background: rgba(255, 255, 255, 0.3);
+        border-color: #ffffff;
+    }
+    50% {
+        transform: scale(1.2);
+        background: rgba(136, 136, 136, 0.4);
+        border-color: #aaaaaa;
+    }
+    100% {
+        transform: scale(1);
+        background: linear-gradient(135deg, rgba(80, 80, 80, 0.8) 0%, rgba(100, 100, 100, 0.6) 100%);
+        border-color: #888888;
+    }
+}
+
+/* Rock Hit Message Animation */
+.rock-hit-message {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 3000;
+    animation: rockHitFadeIn 0.3s ease-out;
+}
+
+.rock-hit-content {
+    background: rgba(0, 0, 0, 0.9);
+    border: 3px solid #888888;
+    border-radius: 15px;
+    padding: 30px;
+    text-align: center;
+    box-shadow: 
+        0 0 30px rgba(136, 136, 136, 0.5),
+        inset 0 0 20px rgba(136, 136, 136, 0.1);
+    animation: rockHitBounce 0.6s ease-out;
+}
+
+.rock-hit-icon {
+    font-size: 4rem;
+    margin-bottom: 15px;
+    animation: rockHitSpin 0.8s ease-out;
+}
+
+.rock-hit-text {
+    font-family: 'Orbitron', monospace;
+    font-size: 2rem;
+    font-weight: 900;
+    color: #888888;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    text-shadow: 0 0 15px #888888;
+}
+
+.rock-hit-subtext {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.2rem;
+    color: rgba(136, 136, 136, 0.8);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+@keyframes rockHitFadeIn {
+    from {
+        opacity: 0;
+        backdrop-filter: blur(0px);
+    }
+    to {
+        opacity: 1;
+        backdrop-filter: blur(3px);
+    }
+}
+
+@keyframes rockHitBounce {
+    0% {
+        transform: scale(0.3) rotate(-10deg);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.1) rotate(5deg);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1) rotate(0deg);
+        opacity: 1;
+    }
+}
+
+@keyframes rockHitSpin {
+    0% {
+        transform: rotate(0deg) scale(0.5);
+    }
+    50% {
+        transform: rotate(180deg) scale(1.2);
+    }
+    100% {
+        transform: rotate(360deg) scale(1);
+    }
 }
 
 .cell.ship {
