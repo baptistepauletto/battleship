@@ -130,6 +130,8 @@ class BattleshipGame {
         this.rocksEnabled = false;
         this.rockDensity = 1; // 0=none, 1=few, 2=many, 3=lot
         this.rockPositions = new Set();
+        this.radarInterval1 = null;
+        this.radarInterval2 = null;
         
         this.ships = {
             carrier: { size: 5, placed: false },
@@ -355,10 +357,137 @@ class BattleshipGame {
     // Connection methods
     showConnectionScreen() {
         this.connectionScreen.style.display = 'flex';
+        this.initializeRadarBlips();
     }
 
     hideConnectionScreen() {
         this.connectionScreen.style.display = 'none';
+        this.clearRadarBlips();
+    }
+
+    initializeRadarBlips() {
+        // Clear any existing blips
+        this.clearRadarBlips();
+        
+        // Create multiple radar blips at random positions
+        const blipCount = 6;
+        for (let i = 0; i < blipCount; i++) {
+            this.createRadarBlip(i);
+        }
+        
+        // Start the radar detection cycle
+        this.startRadarDetectionCycle();
+    }
+
+    createRadarBlip(index) {
+        const blip = document.createElement('div');
+        blip.className = 'radar-blip';
+        blip.id = `radar-blip-${index}`;
+        
+        // Random position (avoid center area where modal is)
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        
+        let x, y;
+        do {
+            x = Math.random() * screenWidth;
+            y = Math.random() * screenHeight;
+            
+            // Calculate distance from center
+            const centerX = screenWidth / 2;
+            const centerY = screenHeight / 2;
+            const distanceFromCenter = Math.sqrt(
+                Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2)
+            );
+            
+            // Ensure blip is not too close to center (avoid modal area)
+        } while (Math.abs(x - screenWidth/2) < 300 && Math.abs(y - screenHeight/2) < 300);
+        
+        blip.style.left = x + 'px';
+        blip.style.top = y + 'px';
+        
+        // Store position for radar calculation
+        blip.dataset.x = x;
+        blip.dataset.y = y;
+        
+        this.connectionScreen.appendChild(blip);
+    }
+
+    startRadarDetectionCycle() {
+        // Clear any existing intervals
+        if (this.radarInterval1) {
+            clearInterval(this.radarInterval1);
+        }
+        if (this.radarInterval2) {
+            clearInterval(this.radarInterval2);
+        }
+        
+        // First radar sweep detection (starts immediately, repeats every 4s)
+        this.radarInterval1 = setInterval(() => {
+            this.triggerRadarDetection();
+        }, 4000);
+        
+        // Second radar sweep detection (starts after 2s delay, repeats every 4s) 
+        this.radarInterval2 = setInterval(() => {
+            this.triggerRadarDetection();
+        }, 4000);
+        
+        // Trigger first detection immediately
+        setTimeout(() => this.triggerRadarDetection(), 100);
+        
+        // Trigger second detection after 2s delay (matching second sweep)
+        setTimeout(() => this.triggerRadarDetection(), 2100);
+    }
+
+    triggerRadarDetection() {
+        const blips = document.querySelectorAll('.radar-blip');
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+        
+        blips.forEach(blip => {
+            const x = parseFloat(blip.dataset.x);
+            const y = parseFloat(blip.dataset.y);
+            
+            // Calculate distance from center
+            const distance = Math.sqrt(
+                Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2)
+            );
+            
+            // Calculate delay based on distance (radar wave speed)
+            // Radar wave takes about 2.8 seconds to reach max distance
+            const maxDistance = Math.sqrt(Math.pow(window.innerWidth, 2) + Math.pow(window.innerHeight, 2));
+            const delay = (distance / maxDistance) * 2800;
+            
+            // Randomly decide if this blip should be detected (30% chance)
+            if (Math.random() < 0.3) {
+                setTimeout(() => {
+                    blip.classList.remove('detected');
+                    void blip.offsetWidth; // Force reflow
+                    blip.classList.add('detected');
+                    
+                    // Remove detected class after animation
+                    setTimeout(() => {
+                        blip.classList.remove('detected');
+                    }, 800);
+                }, delay);
+            }
+        });
+    }
+
+    clearRadarBlips() {
+        // Clear both intervals
+        if (this.radarInterval1) {
+            clearInterval(this.radarInterval1);
+            this.radarInterval1 = null;
+        }
+        if (this.radarInterval2) {
+            clearInterval(this.radarInterval2);
+            this.radarInterval2 = null;
+        }
+        
+        // Remove all radar blips
+        const blips = document.querySelectorAll('.radar-blip');
+        blips.forEach(blip => blip.remove());
     }
 
     showConnectionMenu() {

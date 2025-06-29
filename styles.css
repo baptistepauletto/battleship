@@ -639,6 +639,104 @@ body {
     justify-content: center;
     align-items: center;
     z-index: 2000;
+    overflow: hidden;
+}
+
+/* Radar Wave Animation */
+.connection-screen::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(0, 255, 65, 0.8);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: radarSweep 4s ease-out infinite;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.connection-screen::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    border: 1px solid rgba(0, 255, 65, 0.4);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: radarSweep 4s ease-out infinite 2s;
+    pointer-events: none;
+    z-index: 1;
+}
+
+@keyframes radarSweep {
+    0% {
+        width: 20px;
+        height: 20px;
+        opacity: 1;
+    }
+    70% {
+        width: 200vmax;
+        height: 200vmax;
+        opacity: 0.3;
+    }
+    100% {
+        width: 200vmax;
+        height: 200vmax;
+        opacity: 0;
+    }
+}
+
+/* Radar Ship Blips */
+.radar-blip {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: #ff0040;
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.radar-blip::before {
+    content: '🚢';
+    position: absolute;
+    top: -20px;
+    left: -10px;
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.radar-blip.detected {
+    animation: blipDetection 0.8s ease-out;
+}
+
+.radar-blip.detected::before {
+    opacity: 1;
+}
+
+@keyframes blipDetection {
+    0% {
+        opacity: 0;
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(255, 0, 64, 0);
+    }
+    20% {
+        opacity: 1;
+        transform: scale(1.5);
+        box-shadow: 0 0 0 10px rgba(255, 0, 64, 0.3);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(1);
+        box-shadow: 0 0 0 20px rgba(255, 0, 64, 0);
+    }
 }
 
 .connection-modal {
@@ -652,6 +750,8 @@ body {
     width: 90%;
     max-height: 90vh;
     overflow-y: auto;
+    position: relative;
+    z-index: 2001;
 }
 
 .connection-title {
