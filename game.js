@@ -384,6 +384,58 @@ class BattleshipGame {
         blip.className = 'radar-blip';
         blip.id = `radar-blip-${index}`;
         
+        // Random maritime/naval icons for radar detection
+        const radarIcons = [
+            '🚢', // Ship
+            '⛵', // Sailboat  
+            '🛥️', // Motorboat
+            '🚤', // Speedboat
+            '⚓', // Anchor
+            '💣', // Mine
+            '🐋', // Whale
+            '🦈', // Shark
+            '🐙', // Octopus
+            '🏴‍☠️', // Pirate flag
+            '📦', // Cargo/debris
+            '🛢️', // Oil barrel
+            '🪨', // Rock/reef
+            '🌊', // Wave/disturbance
+            '🤿' // Submarine/diver
+        ];
+        
+        // Randomly assign an icon
+        const randomIcon = radarIcons[Math.floor(Math.random() * radarIcons.length)];
+        blip.dataset.icon = randomIcon;
+        
+        // Set blip color based on object type
+        let blipColor = '#ff0040'; // Default red
+        if (['🚢', '⛵', '🛥️', '🚤'].includes(randomIcon)) {
+            blipColor = '#00ff41'; // Green for friendly vessels
+        } else if (['💣', '🏴‍☠️'].includes(randomIcon)) {
+            blipColor = '#ff0040'; // Red for dangerous objects
+        } else if (['🐋', '🦈', '🐙'].includes(randomIcon)) {
+            blipColor = '#00bfff'; // Blue for sea creatures
+        } else if (['⚓', '📦', '🛢️', '🪨'].includes(randomIcon)) {
+            blipColor = '#ffff00'; // Yellow for debris/objects
+        } else if (['🌊', '🤿'].includes(randomIcon)) {
+            blipColor = '#00ffff'; // Cyan for underwater activity
+        }
+        
+        blip.style.background = blipColor;
+        
+        // Store color class for animation
+        if (blipColor === '#00ff41') {
+            blip.dataset.colorClass = 'green-blip';
+        } else if (blipColor === '#00bfff') {
+            blip.dataset.colorClass = 'blue-blip';
+        } else if (blipColor === '#ffff00') {
+            blip.dataset.colorClass = 'yellow-blip';
+        } else if (blipColor === '#00ffff') {
+            blip.dataset.colorClass = 'cyan-blip';
+        } else {
+            blip.dataset.colorClass = 'red-blip'; // Default
+        }
+        
         // Random position (avoid center area where modal is)
         const screenWidth = window.innerWidth;
         const screenHeight = window.innerHeight;
@@ -462,12 +514,20 @@ class BattleshipGame {
             if (Math.random() < 0.3) {
                 setTimeout(() => {
                     blip.classList.remove('detected');
+                    // Remove color-specific classes
+                    blip.classList.remove('green-blip', 'blue-blip', 'yellow-blip', 'cyan-blip', 'red-blip');
                     void blip.offsetWidth; // Force reflow
+                    
+                    // Add detected class and color-specific class
                     blip.classList.add('detected');
+                    if (blip.dataset.colorClass) {
+                        blip.classList.add(blip.dataset.colorClass);
+                    }
                     
                     // Remove detected class after animation
                     setTimeout(() => {
                         blip.classList.remove('detected');
+                        blip.classList.remove('green-blip', 'blue-blip', 'yellow-blip', 'cyan-blip', 'red-blip');
                     }, 800);
                 }, delay);
             }

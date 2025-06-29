@@ -704,7 +704,7 @@ body {
 }
 
 .radar-blip::before {
-    content: '🚢';
+    content: attr(data-icon);
     position: absolute;
     top: -20px;
     left: -10px;
@@ -725,18 +725,59 @@ body {
     0% {
         opacity: 0;
         transform: scale(1);
-        box-shadow: 0 0 0 0 rgba(255, 0, 64, 0);
+        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
     }
     20% {
         opacity: 1;
         transform: scale(1.5);
-        box-shadow: 0 0 0 10px rgba(255, 0, 64, 0.3);
+        box-shadow: 0 0 0 10px rgba(255, 255, 255, 0.4);
     }
     100% {
         opacity: 0;
         transform: scale(1);
-        box-shadow: 0 0 0 20px rgba(255, 0, 64, 0);
+        box-shadow: 0 0 0 20px rgba(255, 255, 255, 0);
     }
+}
+
+/* Specific detection animations for different blip colors */
+.radar-blip.detected.green-blip {
+    animation: blipDetectionGreen 0.8s ease-out;
+}
+
+.radar-blip.detected.blue-blip {
+    animation: blipDetectionBlue 0.8s ease-out;
+}
+
+.radar-blip.detected.yellow-blip {
+    animation: blipDetectionYellow 0.8s ease-out;
+}
+
+.radar-blip.detected.cyan-blip {
+    animation: blipDetectionCyan 0.8s ease-out;
+}
+
+@keyframes blipDetectionGreen {
+    0% { opacity: 0; transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 255, 65, 0); }
+    20% { opacity: 1; transform: scale(1.5); box-shadow: 0 0 0 10px rgba(0, 255, 65, 0.4); }
+    100% { opacity: 0; transform: scale(1); box-shadow: 0 0 0 20px rgba(0, 255, 65, 0); }
+}
+
+@keyframes blipDetectionBlue {
+    0% { opacity: 0; transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 191, 255, 0); }
+    20% { opacity: 1; transform: scale(1.5); box-shadow: 0 0 0 10px rgba(0, 191, 255, 0.4); }
+    100% { opacity: 0; transform: scale(1); box-shadow: 0 0 0 20px rgba(0, 191, 255, 0); }
+}
+
+@keyframes blipDetectionYellow {
+    0% { opacity: 0; transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 0, 0); }
+    20% { opacity: 1; transform: scale(1.5); box-shadow: 0 0 0 10px rgba(255, 255, 0, 0.4); }
+    100% { opacity: 0; transform: scale(1); box-shadow: 0 0 0 20px rgba(255, 255, 0, 0); }
+}
+
+@keyframes blipDetectionCyan {
+    0% { opacity: 0; transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 255, 255, 0); }
+    20% { opacity: 1; transform: scale(1.5); box-shadow: 0 0 0 10px rgba(0, 255, 255, 0.4); }
+    100% { opacity: 0; transform: scale(1); box-shadow: 0 0 0 20px rgba(0, 255, 255, 0); }
 }
 
 .connection-modal {
