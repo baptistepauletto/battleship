@@ -1252,9 +1252,20 @@ body {
 }
 
 @media (max-width: 768px) {
+    body {
+        overflow-x: hidden;
+    }
+    
+    .game-container {
+        padding: 20px 15px;
+        margin: 10px;
+        max-width: calc(100vw - 20px);
+    }
+    
     .game-boards {
         flex-direction: column;
         align-items: center;
+        gap: 20px;
     }
     
     .game-title {
@@ -1262,13 +1273,45 @@ body {
     }
     
     .game-board {
-        grid-template-columns: repeat(10, 30px);
-        grid-template-rows: repeat(10, 30px);
+        grid-template-columns: repeat(10, 28px);
+        grid-template-rows: repeat(10, 28px);
+        padding: 10px;
+        margin-bottom: 15px;
     }
     
     .cell {
-        width: 30px;
-        height: 30px;
+        width: 28px;
+        height: 28px;
+        font-size: 0.8rem;
+    }
+
+    .player-title {
+        font-size: 1.2rem;
+        margin-bottom: 10px;
+    }
+
+    .ship-placement {
+        padding: 15px;
+    }
+
+    .ship-list {
+        gap: 8px;
+        margin-bottom: 15px;
+    }
+
+    .ship-item {
+        padding: 10px 15px;
+        font-size: 0.9rem;
+    }
+
+    .controls {
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        padding: 10px 15px;
+        font-size: 0.9rem;
     }
 
     .connection-title {
@@ -1298,5 +1341,85 @@ body {
 
     .rock-labels {
         font-size: 0.65rem;
+    }
+}
+
+/* Extra small mobile devices */
+@media (max-width: 480px) {
+    .game-container {
+        padding: 15px 10px;
+        margin: 5px;
+        max-width: calc(100vw - 10px);
+    }
+    
+    .game-title {
+        font-size: 1.5rem;
+        letter-spacing: 1px;
+    }
+    
+    .game-status {
+        font-size: 1rem;
+        padding: 8px;
+        min-height: 40px;
+    }
+    
+    .game-board {
+        grid-template-columns: repeat(10, 25px);
+        grid-template-rows: repeat(10, 25px);
+        padding: 8px;
+        margin-bottom: 10px;
+    }
+    
+    .cell {
+        width: 25px;
+        height: 25px;
+        font-size: 0.7rem;
+    }
+
+    .player-title {
+        font-size: 1rem;
+        margin-bottom: 8px;
+    }
+
+    .ship-placement {
+        padding: 10px;
+    }
+
+    .ship-item {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+    }
+
+    .btn {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+        min-height: 40px;
+    }
+
+    .connection-title {
+        font-size: 1.5rem;
+    }
+
+    .room-code {
+        font-size: 1.5rem;
+        letter-spacing: 2px;
+        padding: 10px 15px;
+    }
+
+    .connection-modal {
+        max-width: 98%;
+        padding: 15px;
+        margin: 10px;
+    }
+
+    .room-input {
+        font-size: 1rem;
+        padding: 10px 15px;
+        min-width: 150px;
+    }
+
+    .waiting-message {
+        font-size: 1rem;
+        margin: 15px 0;
     }
 } 
