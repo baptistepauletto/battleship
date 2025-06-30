@@ -1211,10 +1211,21 @@ class BattleshipGame {
                 // Hit!
                 await this.database.ref(`rooms/${this.roomCode}/players/${targetPlayer}/board/${row}/${col}`).set(2);
                 
-                // Check win condition
+                // Get updated board to check for ship sinking
                 const updatedSnapshot = await this.database.ref(`rooms/${this.roomCode}/players/${targetPlayer}/board`).once('value');
                 const updatedBoard = updatedSnapshot.val();
                 
+                // Check if this hit sank a ship
+                const shipResult = this.checkShipSunk(updatedBoard, row, col);
+                if (shipResult.sunk) {
+                    const shipInfo = this.getShipTypeBySize(shipResult.size);
+                    // Show ship destroyed message with a small delay for dramatic effect
+                    setTimeout(() => {
+                        this.showShipDestroyedMessage(shipInfo);
+                    }, 500);
+                }
+                
+                // Check win condition
                 if (this.checkWinConditionFromBoard(updatedBoard)) {
                     await this.database.ref(`rooms/${this.roomCode}/gameState`).update({
                         gameOver: true,
@@ -1366,6 +1377,73 @@ class BattleshipGame {
                 document.body.removeChild(message);
             }
         }, 2500);
+    }
+
+    checkShipSunk(board, hitRow, hitCol) {
+        // Find all connected ship cells starting from the hit position
+        const visited = new Set();
+        const shipCells = [];
+        
+        const findConnectedShip = (row, col) => {
+            const key = `${row},${col}`;
+            if (visited.has(key)) return;
+            if (!board[row] || board[row][col] === undefined) return;
+            
+            const cellValue = board[row][col];
+            // Only include ship cells (1 = unhit ship, 2 = hit ship)
+            if (cellValue !== 1 && cellValue !== 2) return;
+            
+            visited.add(key);
+            shipCells.push({ row, col, value: cellValue });
+            
+            // Check adjacent cells (4 directions)
+            const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+            directions.forEach(([dr, dc]) => {
+                findConnectedShip(row + dr, col + dc);
+            });
+        };
+        
+        findConnectedShip(hitRow, hitCol);
+        
+        // Check if all cells of this ship are hit (value 2)
+        const allHit = shipCells.every(cell => cell.value === 2);
+        const shipSize = shipCells.length;
+        
+        return { sunk: allHit && shipSize > 0, size: shipSize };
+    }
+
+    getShipTypeBySize(size) {
+        const shipTypes = {
+            5: { name: 'Carrier', icon: '🛳️', displayName: 'Aircraft Carrier' },
+            4: { name: 'Battleship', icon: '⚓', displayName: 'Battleship' },
+            3: { name: 'Cruiser', icon: '🚤', displayName: 'Cruiser or Submarine' },
+            2: { name: 'Destroyer', icon: '⛵', displayName: 'Destroyer' }
+        };
+        
+        return shipTypes[size] || { name: 'Ship', icon: '🚢', displayName: 'Unknown Ship' };
+    }
+
+    showShipDestroyedMessage(shipInfo) {
+        // Create temporary message overlay
+        const message = document.createElement('div');
+        message.className = 'ship-destroyed-message';
+        message.innerHTML = `
+            <div class="ship-destroyed-content">
+                <div class="ship-destroyed-icon">💥${shipInfo.icon}💥</div>
+                <div class="ship-destroyed-text">Ship Destroyed!</div>
+                <div class="ship-destroyed-subtext">Enemy vessel eliminated</div>
+                <div class="ship-destroyed-ship-name">${shipInfo.displayName}</div>
+            </div>
+        `;
+        
+        document.body.appendChild(message);
+        
+        // Remove message after animation
+        setTimeout(() => {
+            if (document.body.contains(message)) {
+                document.body.removeChild(message);
+            }
+        }, 3000);
     }
 
     updateStatus() {
