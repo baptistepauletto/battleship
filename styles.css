@@ -1,5 +1,22 @@
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
 
+/* CSS custom properties for responsive grid sizing */
+:root {
+    --map-width: 10;
+    --map-height: 10;
+    --available-width: calc(100vw - 60px); /* Account for body padding */
+    --max-board-width: calc(min(450px, var(--available-width) / 2 - 30px)); /* For two boards side by side */
+    --cell-size: calc(min(35px, (var(--max-board-width) - 30px) / var(--map-width))); /* 30px for padding */
+    --grid-gap: max(1px, var(--cell-size) / 35);
+}
+
+/* Single board view (setup phase) */
+@media (max-width: 768px) {
+    :root {
+        --max-board-width: calc(min(400px, var(--available-width) - 60px)); /* Single board on mobile */
+    }
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -98,6 +115,8 @@ body {
     justify-content: space-around;
     gap: 40px;
     flex-wrap: wrap;
+    width: 100%;
+    align-items: flex-start;
 }
 
 .player-section {
@@ -119,9 +138,9 @@ body {
 
 .game-board {
     display: grid;
-    grid-template-columns: repeat(10, 35px);
-    grid-template-rows: repeat(10, 35px);
-    gap: 1px;
+    grid-template-columns: repeat(var(--map-width), var(--cell-size));
+    grid-template-rows: repeat(var(--map-height), var(--cell-size));
+    gap: var(--grid-gap);
     background: #000000;
     padding: 15px;
     border-radius: 12px;
@@ -132,6 +151,8 @@ body {
     margin-bottom: 20px;
     position: relative;
     overflow: hidden;
+    width: fit-content;
+    max-width: var(--max-board-width);
 }
 
 .game-board::before {
@@ -170,8 +191,8 @@ body {
 }
 
 .cell {
-    width: 35px;
-    height: 35px;
+    width: var(--cell-size);
+    height: var(--cell-size);
     background: rgba(0, 20, 0, 0.8);
     border: 1px solid rgba(0, 255, 65, 0.3);
     border-radius: 2px;
@@ -183,6 +204,9 @@ body {
     font-weight: bold;
     position: relative;
     z-index: 2;
+    font-size: calc(var(--cell-size) * 0.5);
+    min-width: 20px;
+    min-height: 20px;
 }
 
 .cell:hover {
@@ -1408,37 +1432,36 @@ body {
 }
 
 @media (max-width: 768px) {
+    :root {
+        --available-width: calc(100vw - 40px);
+        --max-board-width: calc(min(350px, var(--available-width) - 40px));
+    }
+    
     body {
-        overflow-x: hidden;
+        padding: 10px;
     }
-    
+
     .game-container {
-        padding: 20px 15px;
+        padding: 20px;
         margin: 10px;
-        max-width: calc(100vw - 20px);
     }
-    
+
     .game-boards {
         flex-direction: column;
         align-items: center;
         gap: 20px;
     }
-    
+
     .game-title {
         font-size: 2rem;
     }
-    
+
     .game-board {
-        grid-template-columns: repeat(10, 28px);
-        grid-template-rows: repeat(10, 28px);
         padding: 10px;
-        margin-bottom: 15px;
     }
-    
+
     .cell {
-        width: 28px;
-        height: 28px;
-        font-size: 0.8rem;
+        border-radius: 1px;
     }
 
     .player-title {
@@ -1447,7 +1470,7 @@ body {
     }
 
     .ship-placement {
-        padding: 15px;
+        margin-bottom: 20px;
     }
 
     .ship-list {
@@ -1456,17 +1479,16 @@ body {
     }
 
     .ship-item {
-        padding: 10px 15px;
+        padding: 8px 12px;
         font-size: 0.9rem;
     }
 
     .controls {
-        gap: 10px;
-        flex-wrap: wrap;
+        gap: 8px;
     }
 
     .btn {
-        padding: 10px 15px;
+        padding: 8px 16px;
         font-size: 0.9rem;
     }
 
@@ -1475,154 +1497,181 @@ body {
     }
 
     .room-code {
-        font-size: 2rem;
-        letter-spacing: 4px;
+        font-size: 1.8rem;
+        padding: 15px;
     }
 
     .layout-option {
-        min-width: 150px;
-        max-width: 150px;
-        min-height: 120px;
-        padding: 12px;
+        min-width: 180px;
+        height: 140px;
+        padding: 15px;
     }
 
     .connection-modal {
+        padding: 30px 20px;
         max-width: 95%;
-        padding: 20px;
     }
 
     .rock-slider-wrapper {
-        max-width: 250px;
+        margin: 10px 0;
     }
 
     .rock-labels {
-        font-size: 0.65rem;
+        font-size: 0.8rem;
     }
 
-    /* Ship destruction pop-up tablet styles */
     .ship-destroyed-content {
+        padding: 20px;
         max-width: 90%;
-        padding: 30px;
     }
 
     .ship-destroyed-icon {
-        font-size: 4rem;
-    }
-
-    .ship-destroyed-text {
         font-size: 2rem;
     }
 
+    .ship-destroyed-text {
+        font-size: 1.5rem;
+    }
+
     .ship-destroyed-subtext {
-        font-size: 1.2rem;
+        font-size: 0.9rem;
     }
 
     .ship-destroyed-ship-name {
-        font-size: 1.6rem;
-        padding: 8px 18px;
+        font-size: 1.1rem;
+        padding: 8px 15px;
     }
 }
 
-/* Extra small mobile devices */
 @media (max-width: 480px) {
-    .game-container {
-        padding: 15px 10px;
-        margin: 5px;
-        max-width: calc(100vw - 10px);
+    :root {
+        --available-width: calc(100vw - 20px);
+        --max-board-width: calc(var(--available-width) - 20px);
     }
     
+    .game-container {
+        padding: 15px;
+        margin: 5px;
+    }
+
     .game-title {
-        font-size: 1.5rem;
+        font-size: 1.8rem;
         letter-spacing: 1px;
     }
-    
+
     .game-status {
         font-size: 1rem;
-        padding: 8px;
+        padding: 10px;
         min-height: 40px;
     }
-    
+
     .game-board {
-        grid-template-columns: repeat(10, 25px);
-        grid-template-rows: repeat(10, 25px);
         padding: 8px;
-        margin-bottom: 10px;
+        border-radius: 8px;
     }
-    
+
     .cell {
-        width: 25px;
-        height: 25px;
-        font-size: 0.7rem;
+        border-radius: 1px;
+        font-size: calc(var(--cell-size) * 0.4);
     }
 
     .player-title {
-        font-size: 1rem;
+        font-size: 1.1rem;
         margin-bottom: 8px;
     }
 
     .ship-placement {
-        padding: 10px;
+        margin-bottom: 15px;
     }
 
     .ship-item {
-        padding: 8px 12px;
+        padding: 6px 10px;
         font-size: 0.8rem;
     }
 
     .btn {
-        padding: 8px 12px;
+        padding: 6px 12px;
         font-size: 0.8rem;
-        min-height: 40px;
+        margin: 2px;
     }
 
     .connection-title {
-        font-size: 1.5rem;
+        font-size: 1.6rem;
+        margin-bottom: 20px;
     }
 
     .room-code {
         font-size: 1.5rem;
-        letter-spacing: 2px;
-        padding: 10px 15px;
+        padding: 12px;
+        margin: 15px auto;
     }
 
     .connection-modal {
+        padding: 20px 15px;
         max-width: 98%;
-        padding: 15px;
         margin: 10px;
     }
 
     .room-input {
+        width: 100%;
+        max-width: 250px;
         font-size: 1rem;
-        padding: 10px 15px;
-        min-width: 150px;
+        padding: 10px;
     }
 
     .waiting-message {
-        font-size: 1rem;
-        margin: 15px 0;
+        font-size: 0.9rem;
+        margin: 8px 0;
     }
 
-    /* Ship destruction pop-up mobile styles */
     .ship-destroyed-content {
+        padding: 15px;
         max-width: 95%;
-        padding: 25px 20px;
         margin: 10px;
     }
 
     .ship-destroyed-icon {
-        font-size: 3.5rem;
-    }
-
-    .ship-destroyed-text {
         font-size: 1.8rem;
     }
 
+    .ship-destroyed-text {
+        font-size: 1.2rem;
+    }
+
     .ship-destroyed-subtext {
-        font-size: 1.1rem;
+        font-size: 0.8rem;
     }
 
     .ship-destroyed-ship-name {
-        font-size: 1.5rem;
-        padding: 8px 15px;
+        font-size: 1rem;
+        padding: 6px 12px;
     }
-} 
+}
+
+/* Ultra small screens */
+@media (max-width: 360px) {
+    :root {
+        --available-width: calc(100vw - 10px);
+        --max-board-width: calc(var(--available-width) - 10px);
+    }
+    
+    .game-container {
+        padding: 10px;
+        margin: 2px;
+    }
+    
+    .game-title {
+        font-size: 1.5rem;
+    }
+    
+    .game-board {
+        padding: 5px;
+    }
+    
+    .cell {
+        min-width: 18px;
+        min-height: 18px;
+    }
+}
+
+ 

@@ -133,6 +133,9 @@ class BattleshipGame {
         this.radarInterval1 = null;
         this.radarInterval2 = null;
         
+        // Initialize responsive grid system
+        this.updateResponsiveGrid();
+        
         this.ships = {
             carrier: { size: 5, placed: false },
             battleship: { size: 4, placed: false },
@@ -186,6 +189,23 @@ class BattleshipGame {
         } else if (this.gamePhase === 'connection') {
             gameContainer.classList.add('connection-phase');
         }
+    }
+
+    updateResponsiveGrid(layout = null) {
+        const selectedLayout = layout || this.selectedLayout;
+        const layoutConfig = MAP_LAYOUTS[selectedLayout];
+        
+        // Update CSS custom properties for responsive grid
+        const root = document.documentElement;
+        root.style.setProperty('--map-width', layoutConfig.width);
+        root.style.setProperty('--map-height', layoutConfig.height);
+        
+        // Force a reflow to apply the new dimensions
+        document.querySelectorAll('.game-board').forEach(board => {
+            board.style.display = 'none';
+            board.offsetHeight; // Trigger reflow
+            board.style.display = 'grid';
+        });
     }
 
     createEmptyBoard(layout = 'classic', rocks = null) {
@@ -591,6 +611,7 @@ class BattleshipGame {
                 document.querySelectorAll('.layout-option').forEach(opt => opt.classList.remove('selected'));
                 layoutOption.classList.add('selected');
                 this.selectedLayout = key;
+                this.updateResponsiveGrid(key);
                 this.confirmLayoutBtn.disabled = false;
             });
             
@@ -777,6 +798,7 @@ class BattleshipGame {
             const rocksEnabled = roomData.gameState?.rocksEnabled || false;
             const rockDensity = roomData.gameState?.rockDensity || 1;
             this.selectedLayout = layout;
+            this.updateResponsiveGrid(layout);
 
             // Generate unique rock positions for player 2
             let player2RockPositions = [];
@@ -825,6 +847,7 @@ class BattleshipGame {
         // Update layout if it exists in room data
         if (roomData.gameState && roomData.gameState.layout) {
             this.selectedLayout = roomData.gameState.layout;
+            this.updateResponsiveGrid(roomData.gameState.layout);
         }
 
         // Check if both players are connected
@@ -887,6 +910,7 @@ class BattleshipGame {
     startGame() {
         this.gamePhase = 'setup';
         this.updateGamePhaseClasses();
+        this.updateResponsiveGrid();
         this.hideConnectionScreen();
         this.renderBoards();
         this.updatePlayerSections();
@@ -920,9 +944,7 @@ class BattleshipGame {
         
 
 
-        // Set up the grid with the correct dimensions
-        boardElement.style.gridTemplateColumns = `repeat(${layout.width}, 35px)`;
-        boardElement.style.gridTemplateRows = `repeat(${layout.height}, 35px)`;
+        // CSS variables handle responsive dimensions automatically
         
         boardElement.innerHTML = '';
 
