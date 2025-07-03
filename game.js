@@ -174,6 +174,9 @@ class BattleshipGame {
         this.initializeDOM();
         this.bindEvents();
         this.showConnectionScreen();
+        
+        // Check for room code in URL parameters
+        this.checkURLParameters();
     }
 
     updateGamePhaseClasses() {
@@ -341,6 +344,9 @@ class BattleshipGame {
         this.confirmLayoutBtn.addEventListener('click', () => this.createRoom());
         this.cancelRoomBtn.addEventListener('click', () => this.cancelRoom());
         this.startMultiplayerBtn.addEventListener('click', () => this.startMultiplayerGame());
+        
+        // Share link button
+        document.getElementById('shareLinkBtn').addEventListener('click', () => this.copyShareableLink());
 
         // Game events
         this.shipList.addEventListener('click', (e) => {
@@ -1504,6 +1510,60 @@ class BattleshipGame {
             }
         } else if (this.gamePhase === 'connection') {
             this.gameStatus.textContent = `Connecting to multiplayer...`;
+        }
+    }
+
+    checkURLParameters() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomCode = urlParams.get('room');
+        
+        if (roomCode && roomCode.length === 6) {
+            // Auto-fill the room code and switch to join room view
+            this.roomCodeInput.value = roomCode.toUpperCase();
+            this.showJoinRoom();
+            
+            // Show a friendly message
+            const joinSection = document.getElementById('joinRoomSection');
+            const existingMessage = joinSection.querySelector('.auto-join-message');
+            if (!existingMessage) {
+                const message = document.createElement('div');
+                message.className = 'auto-join-message waiting-message';
+                message.style.marginBottom = '15px';
+                message.textContent = '🔗 Room code loaded from link!';
+                joinSection.insertBefore(message, joinSection.querySelector('h3').nextSibling);
+            }
+        }
+    }
+
+    generateShareableLink(roomCode) {
+        const baseUrl = window.location.origin + window.location.pathname;
+        return `${baseUrl}?room=${roomCode}`;
+    }
+
+    async copyShareableLink() {
+        if (!this.roomCode) return;
+        
+        const shareableLink = this.generateShareableLink(this.roomCode);
+        
+        try {
+            await navigator.clipboard.writeText(shareableLink);
+            
+            // Show success feedback
+            const shareLinkBtn = document.getElementById('shareLinkBtn');
+            const originalText = shareLinkBtn.textContent;
+            shareLinkBtn.textContent = '✅ Link Copied!';
+            shareLinkBtn.style.background = '#28a745';
+            
+            setTimeout(() => {
+                shareLinkBtn.textContent = originalText;
+                shareLinkBtn.style.background = '';
+            }, 2000);
+            
+        } catch (err) {
+            console.error('Failed to copy link:', err);
+            
+            // Fallback: show the link in an alert
+            alert(`Share this link with your friend:\n\n${shareableLink}`);
         }
     }
 }

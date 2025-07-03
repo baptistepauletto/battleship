@@ -1373,6 +1373,32 @@ body {
     letter-spacing: 1px;
 }
 
+/* Shareable link button styles */
+#shareLinkBtn {
+    background: linear-gradient(45deg, #28a745, #20833a);
+    border: 2px solid #28a745;
+    color: #ffffff;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+    box-shadow: 0 0 8px rgba(40, 167, 69, 0.2);
+}
+
+#shareLinkBtn:hover {
+    background: linear-gradient(45deg, #218838, #1e7e34);
+    box-shadow: 0 0 15px rgba(40, 167, 69, 0.4);
+    transform: translateY(-2px);
+}
+
+.auto-join-message {
+    animation: fade-in 0.5s ease-in;
+}
+
+@keyframes fade-in {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 .player-info.connected {
     color: #00ff41;
 }
