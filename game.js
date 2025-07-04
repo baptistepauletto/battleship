@@ -132,6 +132,7 @@ class BattleshipGame {
         this.rockPositions = new Set();
         this.radarInterval1 = null;
         this.radarInterval2 = null;
+        this.isPlacingRandomly = false; // Add flag to prevent simultaneous random placements
         
         // Initialize responsive grid system
         this.updateResponsiveGrid();
@@ -1324,7 +1325,17 @@ class BattleshipGame {
     }
 
     async randomPlacement() {
+        // Prevent multiple simultaneous random placements
+        if (this.isPlacingRandomly) {
+            return;
+        }
+        
         if (!this.gameState || !this.gameState.players) return;
+        
+        // Set flag and disable button to prevent spam
+        this.isPlacingRandomly = true;
+        this.randomBtn.disabled = true;
+        this.randomBtn.textContent = '⏳ Placing ships...';
         
         const player = this.playerNumber;
         const layout = MAP_LAYOUTS[this.gameState.gameState?.layout || this.selectedLayout];
@@ -1349,6 +1360,10 @@ class BattleshipGame {
             });
 
             await this.database.ref().update(clearUpdates);
+
+            // Wait for the clear operation to complete by refetching the current state
+            const snapshot = await this.database.ref(`rooms/${this.roomCode}/players/${player}/board`).once('value');
+            const clearedBoard = snapshot.val();
 
             // Place ships randomly
             const shipSizes = [5, 4, 3, 3, 2];
@@ -1382,6 +1397,11 @@ class BattleshipGame {
             this.checkReadyState();
         } catch (error) {
             console.error('Error with random placement:', error);
+        } finally {
+            // Always restore button state, even if there was an error
+            this.isPlacingRandomly = false;
+            this.randomBtn.disabled = false;
+            this.randomBtn.textContent = '🎲 Random Placement';
         }
     }
 
