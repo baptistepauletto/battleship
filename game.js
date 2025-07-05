@@ -130,6 +130,16 @@ class BattleshipGame {
         this.rocksEnabled = false;
         this.rockDensity = 1; // 0=none, 1=few, 2=many, 3=lot
         this.rockPositions = new Set();
+        this.whirlwindsEnabled = false;
+        this.whirlwindFrequency = 3; // Every 3 turns
+        this.currentTurn = 0;
+        this.whirlwindState = {
+            active: false,
+            warning: false,
+            position: null,
+            size: null,
+            warningTurn: null
+        };
         this.radarInterval1 = null;
         this.radarInterval2 = null;
         this.isPlacingRandomly = false; // Add flag to prevent simultaneous random placements
@@ -167,7 +177,17 @@ class BattleshipGame {
             layout: 'classic', // Default layout
             rocksEnabled: false,
             rockDensity: 1,
-            rockPositions: []
+            rockPositions: [],
+            whirlwindsEnabled: false,
+            whirlwindFrequency: 3,
+            currentTurn: 0,
+            whirlwindState: {
+                active: false,
+                warning: false,
+                position: null,
+                size: null,
+                warningTurn: null
+            }
         };
 
         initializeMapLayouts();
@@ -321,6 +341,8 @@ class BattleshipGame {
         this.rockControlsDiv = document.getElementById('rockControls');
         this.rockDensitySlider = document.getElementById('rockDensity');
         this.rockPreviewText = document.getElementById('rockPreview');
+        this.whirlwindsEnabledCheckbox = document.getElementById('whirlwindsEnabled');
+        this.whirlwindControlsDiv = document.getElementById('whirlwindControls');
 
         // Game elements
         this.gameStatus = document.getElementById('gameStatus');
@@ -372,6 +394,9 @@ class BattleshipGame {
         // Rock controls events
         this.rocksEnabledCheckbox.addEventListener('change', () => this.handleRockToggle());
         this.rockDensitySlider.addEventListener('input', () => this.handleRockDensityChange());
+        
+        // Whirlwind controls events
+        this.whirlwindsEnabledCheckbox.addEventListener('change', () => this.handleWhirlwindToggle());
 
         // Room code input enter key
         this.roomCodeInput.addEventListener('keypress', (e) => {
@@ -637,6 +662,11 @@ class BattleshipGame {
         this.rockPreviewText.textContent = densityLabels[this.rockDensity];
     }
 
+    handleWhirlwindToggle() {
+        this.whirlwindsEnabled = this.whirlwindsEnabledCheckbox.checked;
+        this.whirlwindControlsDiv.style.display = this.whirlwindsEnabled ? 'block' : 'none';
+    }
+
     generateRockPositions(layout, density) {
         const rocks = new Set();
         if (density === 0) return rocks;
@@ -749,7 +779,17 @@ class BattleshipGame {
                     winner: null,
                     layout: this.selectedLayout,
                     rocksEnabled: this.rocksEnabled,
-                    rockDensity: this.rockDensity
+                    rockDensity: this.rockDensity,
+                    whirlwindsEnabled: this.whirlwindsEnabled,
+                    whirlwindFrequency: this.whirlwindFrequency,
+                    currentTurn: 0,
+                    whirlwindState: {
+                        active: false,
+                        warning: false,
+                        position: null,
+                        size: null,
+                        warningTurn: null
+                    }
                 }
             };
 
@@ -800,11 +840,15 @@ class BattleshipGame {
             this.roomCode = roomCode;
             this.playerNumber = 2;
             
-            // Get the layout and rock configuration from the room
+            // Get the layout, rock, and whirlwind configuration from the room
             const layout = roomData.gameState?.layout || 'classic';
             const rocksEnabled = roomData.gameState?.rocksEnabled || false;
             const rockDensity = roomData.gameState?.rockDensity || 1;
+            const whirlwindsEnabled = roomData.gameState?.whirlwindsEnabled || false;
+            const whirlwindFrequency = roomData.gameState?.whirlwindFrequency || 3;
             this.selectedLayout = layout;
+            this.whirlwindsEnabled = whirlwindsEnabled;
+            this.whirlwindFrequency = whirlwindFrequency;
             this.updateResponsiveGrid(layout);
 
             // Generate unique rock positions for player 2
@@ -1010,6 +1054,21 @@ class BattleshipGame {
                             cell.classList.add('ship'); // Keep ship class to show it was a ship hit
                         }
                         if (cellValue === -1) cell.classList.add('miss');
+                    }
+                }
+
+                // Add whirlwind warning visualization (no active whirlwind display)
+                if (this.gameState.gameState && this.gameState.gameState.whirlwindState) {
+                    const whirlwindState = this.gameState.gameState.whirlwindState;
+                    
+                    if (whirlwindState.warning && whirlwindState.position) {
+                        const wRow = whirlwindState.position.row;
+                        const wCol = whirlwindState.position.col;
+                        const wSize = whirlwindState.size;
+                        
+                        if (row >= wRow && row < wRow + wSize && col >= wCol && col < wCol + wSize) {
+                            cell.classList.add('whirlwind-warning');
+                        }
                     }
                 }
 
@@ -1278,6 +1337,11 @@ class BattleshipGame {
 
             // Update current player
             await this.database.ref(`rooms/${this.roomCode}/gameState/currentPlayer`).set(nextPlayer);
+            
+            // Handle whirlwind logic (only player 1 manages whirlwinds to avoid conflicts)
+            if (this.playerNumber === 1 && this.gameState.gameState.whirlwindsEnabled) {
+                await this.handleWhirlwindTurn();
+            }
         } catch (error) {
             console.error('Error handling attack:', error);
         }
@@ -1558,6 +1622,280 @@ class BattleshipGame {
     generateShareableLink(roomCode) {
         const baseUrl = window.location.origin + window.location.pathname;
         return `${baseUrl}?room=${roomCode}`;
+    }
+
+    // Whirlwind Logic Methods
+    async handleWhirlwindTurn() {
+        if (!this.gameState.gameState.whirlwindsEnabled) return;
+
+        // Increment turn counter
+        const currentTurn = (this.gameState.gameState.currentTurn || 0) + 1;
+        await this.database.ref(`rooms/${this.roomCode}/gameState/currentTurn`).set(currentTurn);
+
+        const whirlwindState = this.gameState.gameState.whirlwindState;
+        const frequency = this.gameState.gameState.whirlwindFrequency || 3;
+
+        // Check if we should execute a warned whirlwind (at start of turn)
+        if (whirlwindState.warning && whirlwindState.warningTurn === currentTurn) {
+            await this.executeWhirlwind();
+            return;
+        }
+
+        // Check if we should spawn a new whirlwind warning
+        if (currentTurn % frequency === 0) {
+            await this.spawnWhirlwindWarning();
+        }
+    }
+
+    async spawnWhirlwindWarning() {
+        const layout = MAP_LAYOUTS[this.gameState.gameState.layout];
+        const sizes = [
+            { name: 'small', size: 3 },
+            { name: 'medium', size: 5 },
+            { name: 'massive', size: 7 }
+        ];
+        
+        const selectedSize = sizes[Math.floor(Math.random() * sizes.length)];
+        const maxRow = layout.height - selectedSize.size;
+        const maxCol = layout.width - selectedSize.size;
+        
+        if (maxRow < 0 || maxCol < 0) return; // Map too small for whirlwind
+
+        const row = Math.floor(Math.random() * (maxRow + 1));
+        const col = Math.floor(Math.random() * (maxCol + 1));
+
+        const whirlwindState = {
+            active: false,
+            warning: true,
+            position: { row, col },
+            size: selectedSize.size,
+            warningTurn: (this.gameState.gameState.currentTurn || 0) + 1
+        };
+
+        await this.database.ref(`rooms/${this.roomCode}/gameState/whirlwindState`).set(whirlwindState);
+        
+        // Show warning message
+        this.showWhirlwindWarning(selectedSize.name, selectedSize.size);
+    }
+
+    async executeWhirlwind() {
+        const whirlwindState = this.gameState.gameState.whirlwindState;
+        if (!whirlwindState.warning) return;
+
+        // Show whirlwind effect message first
+        this.showWhirlwindEffect(whirlwindState.size);
+
+        // Move all ships within the whirlwind area
+        await this.moveShipsInWhirlwind(whirlwindState.position, whirlwindState.size);
+
+        // Immediately clear whirlwind state (no persistent active state)
+        const clearedState = {
+            active: false,
+            warning: false,
+            position: null,
+            size: null,
+            warningTurn: null
+        };
+
+        await this.database.ref(`rooms/${this.roomCode}/gameState/whirlwindState`).set(clearedState);
+    }
+
+        async moveShipsInWhirlwind(position, size) {
+        const layout = MAP_LAYOUTS[this.gameState.gameState.layout];
+        const updates = {};
+
+        // Process both players' boards
+        for (let playerNum = 1; playerNum <= 2; playerNum++) {
+            const board = this.gameState.players[playerNum].board;
+            
+            // FIRST: Find all ships in the area BEFORE clearing anything
+            const affectedShips = this.findShipsInArea(board, position, size, layout);
+            
+            // THEN: Clear the affected area (reset hit/miss states, but preserve rocks)
+            for (let row = position.row; row < position.row + size && row < layout.height; row++) {
+                for (let col = position.col; col < position.col + size && col < layout.width; col++) {
+                    const cellValue = board[row][col];
+                    if (cellValue === 2 || cellValue === -1) { // Hit or miss only, don't touch rocks (-3)
+                        updates[`rooms/${this.roomCode}/players/${playerNum}/board/${row}/${col}`] = 0;
+                    }
+                }
+            }
+
+            // FINALLY: Move each affected ship
+            for (const ship of affectedShips) {
+                const newPosition = this.findNewShipPosition(board, ship, layout, playerNum);
+                if (newPosition) {
+                    // Clear old ship position
+                    for (const cell of ship.cells) {
+                        // Use original state to ensure we clear the right cells
+                        if (cell.state === 1 || cell.state === 2) {
+                            updates[`rooms/${this.roomCode}/players/${playerNum}/board/${cell.row}/${cell.col}`] = 0;
+                        }
+                    }
+                    
+                    // Set new position, preserving hit/unhit state
+                    for (let i = 0; i < ship.cells.length; i++) {
+                        const newRow = newPosition.orientation === 'horizontal' ? newPosition.row : newPosition.row + i;
+                        const newCol = newPosition.orientation === 'horizontal' ? newPosition.col + i : newPosition.col;
+                        const originalState = ship.cells[i].state; // Preserve original hit/unhit state
+                        updates[`rooms/${this.roomCode}/players/${playerNum}/board/${newRow}/${newCol}`] = originalState;
+                    }
+                }
+                // If newPosition is null, ship stays in original position (Option A)
+            }
+        }
+
+        if (Object.keys(updates).length > 0) {
+            await this.database.ref().update(updates);
+        }
+    }
+
+    findShipsInArea(board, position, size, layout) {
+        const ships = [];
+        const globalVisited = new Set(); // Track all visited cells globally
+
+        for (let row = position.row; row < position.row + size && row < layout.height; row++) {
+            for (let col = position.col; col < position.col + size && col < layout.width; col++) {
+                // Look for both unhit (1) and hit (2) ship cells
+                if ((board[row][col] === 1 || board[row][col] === 2) && !globalVisited.has(`${row},${col}`)) {
+                    const ship = this.traceCompleteShip(board, row, col, globalVisited, layout);
+                    if (ship.cells.length > 0) {
+                        ships.push(ship);
+                    }
+                }
+            }
+        }
+
+        return ships;
+    }
+
+    traceCompleteShip(board, startRow, startCol, visited, layout) {
+        const ship = { cells: [] };
+        const queue = [{ row: startRow, col: startCol }];
+        
+        while (queue.length > 0) {
+            const { row, col } = queue.shift();
+            const key = `${row},${col}`;
+            
+            if (visited.has(key)) continue;
+            if (row < 0 || row >= layout.height || col < 0 || col >= layout.width) continue;
+            // Follow both unhit (1) and hit (2) ship cells
+            if (board[row][col] !== 1 && board[row][col] !== 2) continue;
+            
+            visited.add(key);
+            ship.cells.push({ row, col, state: board[row][col] }); // Store original state
+            
+            // Check adjacent cells (4 directions) - trace COMPLETE ship regardless of whirlwind boundaries
+            const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+            for (const [dr, dc] of directions) {
+                const nextRow = row + dr;
+                const nextCol = col + dc;
+                const nextKey = `${nextRow},${nextCol}`;
+                
+                // Only add to queue if not already visited and within board bounds
+                if (!visited.has(nextKey) && 
+                    nextRow >= 0 && nextRow < layout.height && 
+                    nextCol >= 0 && nextCol < layout.width &&
+                    (board[nextRow][nextCol] === 1 || board[nextRow][nextCol] === 2)) {
+                    queue.push({ row: nextRow, col: nextCol });
+                }
+            }
+        }
+
+        return ship;
+    }
+
+    // Keep the original traceShip method for any other uses
+    traceShip(board, startRow, startCol, visited, layout) {
+        const ship = { cells: [] };
+        const queue = [{ row: startRow, col: startCol }];
+        
+        while (queue.length > 0) {
+            const { row, col } = queue.shift();
+            const key = `${row},${col}`;
+            
+            if (visited.has(key)) continue;
+            if (row < 0 || row >= layout.height || col < 0 || col >= layout.width) continue;
+            // Follow both unhit (1) and hit (2) ship cells
+            if (board[row][col] !== 1 && board[row][col] !== 2) continue;
+            
+            visited.add(key);
+            ship.cells.push({ row, col, state: board[row][col] }); // Store original state
+            
+            // Check adjacent cells (4 directions)
+            const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+            for (const [dr, dc] of directions) {
+                queue.push({ row: row + dr, col: col + dc });
+            }
+        }
+
+        return ship;
+    }
+
+    findNewShipPosition(board, ship, layout, playerNum) {
+        const shipLength = ship.cells.length;
+        const maxAttempts = 100;
+        
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            const orientation = Math.random() < 0.5 ? 'horizontal' : 'vertical';
+            const maxRow = orientation === 'horizontal' ? layout.height : layout.height - shipLength + 1;
+            const maxCol = orientation === 'horizontal' ? layout.width - shipLength + 1 : layout.width;
+            
+            if (maxRow <= 0 || maxCol <= 0) continue;
+            
+            const row = Math.floor(Math.random() * maxRow);
+            const col = Math.floor(Math.random() * maxCol);
+            
+            if (this.canPlaceShip(row, col, shipLength, orientation, playerNum)) {
+                return { row, col, orientation };
+            }
+        }
+        
+        return null; // Could not find valid position
+    }
+
+
+
+    showWhirlwindWarning(sizeName, size) {
+        const message = document.createElement('div');
+        message.className = 'whirlwind-warning-message';
+        message.innerHTML = `
+            <div class="whirlwind-warning-content">
+                <div class="whirlwind-warning-icon">⚠️🌪️⚠️</div>
+                <div class="whirlwind-warning-text">Whirlwind Incoming!</div>
+                <div class="whirlwind-warning-subtext">A ${sizeName} whirlwind will appear next turn</div>
+                <div class="whirlwind-warning-size">${size}x${size} area will be affected</div>
+            </div>
+        `;
+        
+        document.body.appendChild(message);
+        
+        setTimeout(() => {
+            if (document.body.contains(message)) {
+                document.body.removeChild(message);
+            }
+        }, 4000);
+    }
+
+    showWhirlwindEffect(size) {
+        const message = document.createElement('div');
+        message.className = 'whirlwind-effect-message';
+        message.innerHTML = `
+            <div class="whirlwind-effect-content">
+                <div class="whirlwind-effect-icon">🌪️💨🌪️</div>
+                <div class="whirlwind-effect-text">Whirlwind Active!</div>
+                <div class="whirlwind-effect-subtext">Ships have been scattered!</div>
+                <div class="whirlwind-effect-size">Hit/Miss markers cleared in ${size}x${size} area</div>
+            </div>
+        `;
+        
+        document.body.appendChild(message);
+        
+        setTimeout(() => {
+            if (document.body.contains(message)) {
+                document.body.removeChild(message);
+            }
+        }, 3500);
     }
 
     async copyShareableLink() {
