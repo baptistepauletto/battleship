@@ -131,7 +131,7 @@ class BattleshipGame {
         this.rockDensity = 1; // 0=none, 1=few, 2=many, 3=lot
         this.rockPositions = new Set();
         this.whirlwindsEnabled = false;
-        this.whirlwindFrequency = 3; // Every 3 turns
+        this.whirlwindFrequency = 8; // Every 6 turns
         this.currentTurn = 0;
         this.whirlwindState = {
             active: false,
@@ -179,7 +179,7 @@ class BattleshipGame {
             rockDensity: 1,
             rockPositions: [],
             whirlwindsEnabled: false,
-            whirlwindFrequency: 3,
+            whirlwindFrequency: 6,
             currentTurn: 0,
             whirlwindState: {
                 active: false,
