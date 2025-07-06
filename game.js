@@ -10,6 +10,38 @@ const firebaseConfig = {
     measurementId: "G-3HN995NF5T"
 };
 
+// Weapon Definitions
+const WEAPONS = {
+    cross: {
+        name: "Cross Blaster",
+        icon: "⚔️",
+        pattern: [[0,0], [-1,0], [1,0], [0,-1], [0,1]], // center + 4 adjacent
+        duration: 1,
+        description: "Hits 5 cells in cross pattern"
+    },
+    line: {
+        name: "Line Cannon", 
+        icon: "💥",
+        pattern: [[0,0], [-1,0], [1,0]], // horizontal line
+        duration: 2,
+        description: "Hits 3 cells in a line"
+    },
+    star: {
+        name: "Star Burst",
+        icon: "⭐",
+        pattern: [[0,0], [-1,-1], [-1,1], [1,-1], [1,1]], // center + 4 diagonal
+        duration: 1,
+        description: "Hits 5 cells in star pattern"
+    },
+    lshape: {
+        name: "L-Shot",
+        icon: "🔫",
+        pattern: [[0,0], [1,0], [0,1]], // L shape
+        duration: 2,
+        description: "Hits 3 cells in L pattern"
+    }
+};
+
 // Map Layout Definitions
 const MAP_LAYOUTS = {
     classic: {
@@ -130,6 +162,7 @@ class BattleshipGame {
         this.rocksEnabled = false;
         this.rockDensity = 1; // 0=none, 1=few, 2=many, 3=lot
         this.rockPositions = new Set();
+        this.activeWeapon = null; // {type: "cross", shotsLeft: 1, pattern: [...]}
 
         this.radarInterval1 = null;
         this.radarInterval2 = null;
@@ -152,13 +185,15 @@ class BattleshipGame {
                     board: this.createEmptyBoard(),
                     ships: JSON.parse(JSON.stringify(this.ships)),
                     shipsReady: false,
-                    connected: false
+                    connected: false,
+                    activeWeapon: null
                 },
                 2: {
                     board: this.createEmptyBoard(),
                     ships: JSON.parse(JSON.stringify(this.ships)),
                     shipsReady: false,
-                    connected: false
+                    connected: false,
+                    activeWeapon: null
                 }
             },
             currentPlayer: 1,
@@ -231,8 +266,8 @@ class BattleshipGame {
         
         // Add rocks as -3 (rock cells)
         if (rocks) {
-            rocks.forEach(position => {
-                const [row, col] = position.split(',').map(Number);
+            rocks.forEach(rockData => {
+                const [row, col] = rockData.position.split(',').map(Number);
                 if (row >= 0 && row < layoutConfig.height && col >= 0 && col < layoutConfig.width) {
                     board[row][col] = -3; // Rock cell
                 }
@@ -645,7 +680,7 @@ class BattleshipGame {
 
 
     generateRockPositions(layout, density) {
-        const rocks = new Set();
+        const rocks = [];
         if (density === 0) return rocks;
 
         const layoutConfig = MAP_LAYOUTS[layout];
@@ -658,7 +693,7 @@ class BattleshipGame {
         const maxRocks = Math.floor(totalCells * densityPercentages[density]);
 
         let attempts = 0;
-        while (rocks.size < maxRocks && attempts < maxRocks * 3) {
+        while (rocks.length < maxRocks && attempts < maxRocks * 3) {
             const row = Math.floor(Math.random() * layoutConfig.height);
             const col = Math.floor(Math.random() * layoutConfig.width);
             const position = `${row},${col}`;
@@ -669,11 +704,24 @@ class BattleshipGame {
                 continue;
             }
 
-            rocks.add(position);
+            // 75% chance of weapon in rock
+            const hasWeapon = Math.random() < 0.75;
+            const rockData = {
+                position: position,
+                weapon: hasWeapon ? this.getRandomWeapon() : null
+            };
+            
+            rocks.push(rockData);
             attempts++;
         }
 
         return rocks;
+    }
+
+    getRandomWeapon() {
+        const weaponTypes = Object.keys(WEAPONS);
+        const randomType = weaponTypes[Math.floor(Math.random() * weaponTypes.length)];
+        return randomType;
     }
 
     showJoinRoom() {
@@ -730,8 +778,7 @@ class BattleshipGame {
         // Generate rock positions for player 1 if enabled
         let player1RockPositions = [];
         if (this.rocksEnabled) {
-            const rocks = this.generateRockPositions(this.selectedLayout, this.rockDensity);
-            player1RockPositions = Array.from(rocks);
+            player1RockPositions = this.generateRockPositions(this.selectedLayout, this.rockDensity);
         }
 
         try {
@@ -743,7 +790,7 @@ class BattleshipGame {
                 players: {
                     1: {
                         connected: true,
-                        board: this.createEmptyBoard(this.selectedLayout, new Set(player1RockPositions)),
+                        board: this.createEmptyBoard(this.selectedLayout, player1RockPositions),
                         ships: this.ships,
                         shipsReady: false,
                         rockPositions: player1RockPositions
@@ -757,16 +804,7 @@ class BattleshipGame {
                     layout: this.selectedLayout,
                     rocksEnabled: this.rocksEnabled,
                     rockDensity: this.rockDensity,
-                    whirlwindsEnabled: this.whirlwindsEnabled,
-                    whirlwindFrequency: this.whirlwindFrequency,
-                    currentTurn: 0,
-                    whirlwindState: {
-                        active: false,
-                        warning: false,
-                        position: null,
-                        size: null,
-                        warningTurn: null
-                    }
+
                 }
             };
 
@@ -817,7 +855,7 @@ class BattleshipGame {
             this.roomCode = roomCode;
             this.playerNumber = 2;
             
-            // Get the layout, rock, and whirlwind configuration from the room
+            // Get the layout and rock configuration from the room
             const layout = roomData.gameState?.layout || 'classic';
             const rocksEnabled = roomData.gameState?.rocksEnabled || false;
             const rockDensity = roomData.gameState?.rockDensity || 1;
@@ -827,8 +865,7 @@ class BattleshipGame {
             // Generate unique rock positions for player 2
             let player2RockPositions = [];
             if (rocksEnabled) {
-                const rocks = this.generateRockPositions(layout, rockDensity);
-                player2RockPositions = Array.from(rocks);
+                player2RockPositions = this.generateRockPositions(layout, rockDensity);
             }
 
             // Get player 2 metadata
@@ -836,7 +873,7 @@ class BattleshipGame {
             
             await roomRef.child('players/2').set({
                 connected: true,
-                board: this.createEmptyBoard(layout, new Set(player2RockPositions)),
+                board: this.createEmptyBoard(layout, player2RockPositions),
                 ships: this.ships,
                 shipsReady: false,
                 rockPositions: player2RockPositions,
@@ -938,6 +975,7 @@ class BattleshipGame {
         this.hideConnectionScreen();
         this.renderBoards();
         this.updatePlayerSections();
+        this.updateWeaponVisuals();
         this.updateStatus();
     }
 
@@ -1048,6 +1086,7 @@ class BattleshipGame {
         if (this.gamePhase === 'game') {
             this.renderBoards();
             this.updatePlayerSections();
+            this.updateWeaponVisuals();
             this.checkGameEnd();
         }
         this.updateStatus();
@@ -1203,6 +1242,26 @@ class BattleshipGame {
         this.checkReadyState();
     }
 
+    updateWeaponVisuals() {
+        // Add glowing border to active player's board if they have a weapon
+        const player1Board = document.getElementById('player1Board');
+        const player2Board = document.getElementById('player2Board');
+        
+        // Remove existing weapon glow
+        player1Board.classList.remove('weapon-active');
+        player2Board.classList.remove('weapon-active');
+        
+        // Add weapon glow to current player's board if they have an active weapon
+        if (this.gameState && this.gameState.players) {
+            const currentPlayer = this.gameState.gameState?.currentPlayer;
+            const currentPlayerBoard = currentPlayer === 1 ? player1Board : player2Board;
+            
+            if (this.gameState.players[currentPlayer] && this.gameState.players[currentPlayer].activeWeapon) {
+                currentPlayerBoard.classList.add('weapon-active');
+            }
+        }
+    }
+
     updatePlayerSections() {
         // Update titles based on player perspective
         const player1Title = this.player1Section.querySelector('.player-title');
@@ -1254,6 +1313,10 @@ class BattleshipGame {
 
         try {
             let nextPlayer = this.playerNumber;
+            let weaponUsed = false;
+            
+            // Check if player has an active weapon
+            const activeWeapon = this.gameState.players[this.playerNumber].activeWeapon;
             
             if (cellValue === 1) {
                 // Hit!
@@ -1281,17 +1344,88 @@ class BattleshipGame {
                     });
                     return;
                 }
+                
+                // Use weapon if available
+                if (activeWeapon && activeWeapon.shotsLeft > 0) {
+                    weaponUsed = true;
+                    const affectedCells = this.applyWeaponEffect(row, col, activeWeapon.type, targetPlayer);
+                    
+                    // Apply weapon effect to all affected cells
+                    for (const cell of affectedCells) {
+                        const cellValue = board[cell.row] && board[cell.row][cell.col] !== undefined ? board[cell.row][cell.col] : 0;
+                        
+                        if (cellValue === 1) {
+                            // Hit ship in weapon area
+                            await this.database.ref(`rooms/${this.roomCode}/players/${targetPlayer}/board/${cell.row}/${cell.col}`).set(2);
+                        } else if (cellValue === 0) {
+                            // Miss in weapon area
+                            await this.database.ref(`rooms/${this.roomCode}/players/${targetPlayer}/board/${cell.row}/${cell.col}`).set(-1);
+                        }
+                    }
+                    
+                    // Decrement weapon shots
+                    const newShotsLeft = activeWeapon.shotsLeft - 1;
+                    if (newShotsLeft > 0) {
+                        await this.database.ref(`rooms/${this.roomCode}/players/${this.playerNumber}/activeWeapon/shotsLeft`).set(newShotsLeft);
+                    } else {
+                        // Weapon depleted
+                        await this.database.ref(`rooms/${this.roomCode}/players/${this.playerNumber}/activeWeapon`).set(null);
+                    }
+                }
+                
                 // Stay same player on hit
             } else if (cellValue === -3) {
-                // Hit a rock - treat as miss but reveal the rock
+                // Hit a rock - check if it has a weapon
+                const rockData = this.findRockData(row, col, targetPlayer);
+                let weaponType = null;
+                
+                if (rockData && rockData.weapon) {
+                    weaponType = rockData.weapon;
+                    // Set active weapon for the attacking player
+                    await this.database.ref(`rooms/${this.roomCode}/players/${this.playerNumber}/activeWeapon`).set({
+                        type: weaponType,
+                        shotsLeft: WEAPONS[weaponType].duration,
+                        pattern: WEAPONS[weaponType].pattern
+                    });
+                }
+                
                 await this.database.ref(`rooms/${this.roomCode}/players/${targetPlayer}/board/${row}/${col}`).set(-4); // -4 = discovered rock
                 nextPlayer = this.playerNumber === 1 ? 2 : 1;
                 
-                // Show rock hit message
-                this.showRockHitMessage();
+                // Show rock hit message with weapon info if found
+                this.showRockHitMessage(weaponType);
             } else {
                 // Miss (water)
                 await this.database.ref(`rooms/${this.roomCode}/players/${targetPlayer}/board/${row}/${col}`).set(-1);
+                
+                // Use weapon if available
+                if (activeWeapon && activeWeapon.shotsLeft > 0) {
+                    weaponUsed = true;
+                    const affectedCells = this.applyWeaponEffect(row, col, activeWeapon.type, targetPlayer);
+                    
+                    // Apply weapon effect to all affected cells
+                    for (const cell of affectedCells) {
+                        const cellValue = board[cell.row] && board[cell.row][cell.col] !== undefined ? board[cell.row][cell.col] : 0;
+                        
+                        if (cellValue === 1) {
+                            // Hit ship in weapon area
+                            await this.database.ref(`rooms/${this.roomCode}/players/${targetPlayer}/board/${cell.row}/${cell.col}`).set(2);
+                        } else if (cellValue === 0) {
+                            // Miss in weapon area
+                            await this.database.ref(`rooms/${this.roomCode}/players/${targetPlayer}/board/${cell.row}/${cell.col}`).set(-1);
+                        }
+                    }
+                    
+                    // Decrement weapon shots
+                    const newShotsLeft = activeWeapon.shotsLeft - 1;
+                    if (newShotsLeft > 0) {
+                        await this.database.ref(`rooms/${this.roomCode}/players/${this.playerNumber}/activeWeapon/shotsLeft`).set(newShotsLeft);
+                    } else {
+                        // Weapon depleted
+                        await this.database.ref(`rooms/${this.roomCode}/players/${this.playerNumber}/activeWeapon`).set(null);
+                    }
+                }
+                
                 nextPlayer = this.playerNumber === 1 ? 2 : 1;
             }
 
@@ -1426,17 +1560,68 @@ class BattleshipGame {
         }
     }
 
-    showRockHitMessage() {
+    findRockData(row, col, player) {
+        if (!this.gameState || !this.gameState.players || !this.gameState.players[player].rockPositions) {
+            return null;
+        }
+        
+        const rockPositions = this.gameState.players[player].rockPositions;
+        const position = `${row},${col}`;
+        
+        return rockPositions.find(rock => rock.position === position) || null;
+    }
+
+    applyWeaponEffect(targetRow, targetCol, weaponType, targetPlayer) {
+        const weapon = WEAPONS[weaponType];
+        if (!weapon) return [];
+        
+        const affectedCells = [];
+        const layout = MAP_LAYOUTS[this.gameState.gameState?.layout || this.selectedLayout];
+        
+        // Apply weapon pattern to target cell
+        weapon.pattern.forEach(([dr, dc]) => {
+            const newRow = targetRow + dr;
+            const newCol = targetCol + dc;
+            
+            // Check bounds
+            if (newRow >= 0 && newRow < layout.height && newCol >= 0 && newCol < layout.width) {
+                affectedCells.push({ row: newRow, col: newCol });
+            }
+        });
+        
+        return affectedCells;
+    }
+
+    showRockHitMessage(weaponType = null) {
         // Create temporary message overlay
         const message = document.createElement('div');
         message.className = 'rock-hit-message';
-        message.innerHTML = `
-            <div class="rock-hit-content">
-                <div class="rock-hit-icon">🪨💥</div>
-                <div class="rock-hit-text">Rock Discovered!</div>
-                <div class="rock-hit-subtext">You hit a hidden rock</div>
-            </div>
-        `;
+        
+        if (weaponType && WEAPONS[weaponType]) {
+            const weapon = WEAPONS[weaponType];
+            message.innerHTML = `
+                <div class="rock-hit-content">
+                    <div class="rock-hit-icon">🪨💥</div>
+                    <div class="rock-hit-text">Weapon Found!</div>
+                    <div class="rock-hit-subtext">${weapon.name} discovered in rock</div>
+                    <div class="weapon-info">
+                        <div class="weapon-icon">${weapon.icon}</div>
+                        <div class="weapon-details">
+                            <div class="weapon-name">${weapon.name}</div>
+                            <div class="weapon-duration">${weapon.duration} shot${weapon.duration > 1 ? 's' : ''}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            message.innerHTML = `
+                <div class="rock-hit-content">
+                    <div class="rock-hit-icon">🪨💥</div>
+                    <div class="rock-hit-text">Rock Discovered!</div>
+                    <div class="rock-hit-subtext">The rock was empty</div>
+                </div>
+            `;
+        }
         
         document.body.appendChild(message);
         
@@ -1445,7 +1630,7 @@ class BattleshipGame {
             if (document.body.contains(message)) {
                 document.body.removeChild(message);
             }
-        }, 2500);
+        }, 3500);
     }
 
     checkShipSunk(board, hitRow, hitCol) {
