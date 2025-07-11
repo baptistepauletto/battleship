@@ -1618,7 +1618,7 @@ class BattleshipGame {
                 <div class="rock-hit-content">
                     <div class="rock-hit-icon">🪨💥</div>
                     <div class="rock-hit-text">Rock Discovered!</div>
-                    <div class="rock-hit-subtext">The rock was empty</div>
+                    <div class="rock-hit-subtext">The rock was empty...</div>
                 </div>
             `;
         }
