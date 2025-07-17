@@ -1292,6 +1292,18 @@ class BattleshipGame {
             // Add class to show which section is for the current user
             this.player1Section.classList.toggle('own-board', this.playerNumber === 1);
             this.player2Section.classList.toggle('own-board', this.playerNumber === 2);
+            // Add turn indicator - highlight opponents board when it's user's turn
+            const isUserTurn = currentPlayer === this.playerNumber;
+            const opponentSection = this.playerNumber === 1 ? this.player2Section : this.player1Section;
+            
+            // Remove turn indicator from both sections first
+            this.player1Section.classList.remove('your-turn');
+            this.player2Section.classList.remove('your-turn');
+            
+            // Add turn indicator to opponents section if it's user's turn
+            if (isUserTurn) {
+                opponentSection.classList.add('your-turn');
+            }
         }
     }
 
