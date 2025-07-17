@@ -1332,6 +1332,7 @@ class BattleshipGame {
             
             if (cellValue === 1) {
                 // Hit!
+                this.playSound('hit');
                 await this.database.ref(`rooms/${this.roomCode}/players/${targetPlayer}/board/${row}/${col}`).set(2);
                 
                 // Get updated board to check for ship sinking
@@ -1408,6 +1409,7 @@ class BattleshipGame {
                 this.showRockHitMessage(weaponType);
             } else {
                 // Miss (water)
+                this.playSound('miss');
                 await this.database.ref(`rooms/${this.roomCode}/players/${targetPlayer}/board/${row}/${col}`).set(-1);
                 
                 // Use weapon if available
@@ -1804,6 +1806,62 @@ class BattleshipGame {
             
             // Fallback: show the link in an alert
             alert(`Share this link with your friend:\n\n${shareableLink}`);
+        }
+    }
+
+    playSound(type) {
+        const ctx = window.audioCtx || (window.audioCtx = new (window.AudioContext || window.webkitAudioContext)());
+        if (type === 'hit') {
+            // Laser zap: square wave, frequency sweep down, vibrato
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.type = 'square';
+            o.frequency.setValueAtTime(880, ctx.currentTime);
+            o.frequency.linearRampToValueAtTime(220, ctx.currentTime + 0.18);
+            g.gain.setValueAtTime(0.18, ctx.currentTime);
+            g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.18);
+            o.connect(g);
+            g.connect(ctx.destination);
+            // Vibrato
+            const vibrato = ctx.createOscillator();
+            vibrato.frequency.value = 18;
+            const vibratoGain = ctx.createGain();
+            vibratoGain.gain.value = 30;
+            vibrato.connect(vibratoGain);
+            vibratoGain.connect(o.frequency);
+            vibrato.start(ctx.currentTime);
+            vibrato.stop(ctx.currentTime + 0.18);
+            o.start(ctx.currentTime);
+            o.stop(ctx.currentTime + 0.18);
+        } else if (type === 'miss') {
+            // Splash/plop: triangle wave, frequency sweep up, double-beep
+            for (let i = 0; i < 2; i++) {
+                const o = ctx.createOscillator();
+                const g = ctx.createGain();
+                o.type = 'triangle';
+                const start = ctx.currentTime + i * 0.11;
+                o.frequency.setValueAtTime(180, start);
+                o.frequency.linearRampToValueAtTime(320, start + 0.09);
+                g.gain.setValueAtTime(0.13, start);
+                g.gain.linearRampToValueAtTime(0, start + 0.09);
+                o.connect(g);
+                g.connect(ctx.destination);
+                o.start(start);
+                o.stop(start + 0.09);
+            }
+        } else {
+            // Default beep
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.type = 'sine';
+            o.frequency.value = 300;
+            g.gain.value = 0.10;
+            o.connect(g);
+            g.connect(ctx.destination);
+            o.start();
+            o.stop(ctx.currentTime + 0.18);
+            g.gain.setValueAtTime(g.gain.value, ctx.currentTime);
+            g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.18);
         }
     }
 }
