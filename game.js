@@ -1304,6 +1304,16 @@ class BattleshipGame {
             if (isUserTurn) {
                 opponentSection.classList.add('your-turn');
             }
+
+            // Play sound when it becomes the user's turn
+            if (typeof this._lastIsUserTurn === 'undefined') {
+                this._lastIsUserTurn = isUserTurn;
+            } else if (!this._lastIsUserTurn && isUserTurn) {
+                this.playSound('your-turn');
+                this._lastIsUserTurn = isUserTurn;
+            } else {
+                this._lastIsUserTurn = isUserTurn;
+            }
         }
     }
 
@@ -1692,6 +1702,7 @@ class BattleshipGame {
     }
 
     showShipDestroyedMessage(shipInfo) {
+        this.playSound('ship-destroyed');
         // Create temporary message overlay
         const message = document.createElement('div');
         message.className = 'ship-destroyed-message';
@@ -1849,6 +1860,48 @@ class BattleshipGame {
                 o.start(start);
                 o.stop(start + 0.09);
             }
+        } else if (type === 'ship-destroyed') {
+            // Ship destroyed: explosion effect (noise burst + descending tone)
+            // Noise burst
+            const bufferSize = ctx.sampleRate * 0.18;
+            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.09));
+            }
+            const noise = ctx.createBufferSource();
+            noise.buffer = buffer;
+            const noiseGain = ctx.createGain();
+            noiseGain.gain.value = 0.18;
+            noise.connect(noiseGain).connect(ctx.destination);
+            noise.start();
+            noise.stop(ctx.currentTime + 0.18);
+            // Descending tone
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.type = 'sawtooth';
+            o.frequency.setValueAtTime(600, ctx.currentTime);
+            o.frequency.linearRampToValueAtTime(120, ctx.currentTime + 0.25);
+            g.gain.setValueAtTime(0.13, ctx.currentTime);
+            g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.25);
+            o.connect(g).connect(ctx.destination);
+            o.start(ctx.currentTime + 0.05);
+            o.stop(ctx.currentTime + 0.3);
+        } else if (type === 'your-turn') {
+            // Your turn: short arpeggio (3 quick notes)
+            const notes = [440, 660, 880];
+            notes.forEach((freq, i) => {
+                const o = ctx.createOscillator();
+                const g = ctx.createGain();
+                o.type = 'triangle';
+                o.frequency.value = freq;
+                const start = ctx.currentTime + i * 0.08;
+                g.gain.setValueAtTime(0.13, start);
+                g.gain.linearRampToValueAtTime(0, start + 0.07);
+                o.connect(g).connect(ctx.destination);
+                o.start(start);
+                o.stop(start + 0.07);
+            });
         } else {
             // Default beep
             const o = ctx.createOscillator();
