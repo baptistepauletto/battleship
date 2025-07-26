@@ -95,7 +95,7 @@ The codebase is organized into separate files for better maintainability while r
 Player 1 Browser ←→ Firebase Realtime DB ←→ Player 2 Browser
      ↓                      ↓                      ↓
   Game State            Synchronized           Game State
-  Updates              Game Rooms              Updates
+  Updates                Game Rooms              Updates
 ```
 
 ### Database Structure
