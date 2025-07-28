@@ -1467,6 +1467,64 @@ body {
     transform: translateY(-2px);
 }
 
+/* Quick Game button special styling */
+#quickGameBtn {
+    background: linear-gradient(45deg, #ffb347, #ff8c00);
+    border: 2px solid #ff8c00;
+    color: #ffffff;
+    font-weight: 700;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    box-shadow: 
+        0 0 15px rgba(255, 140, 0, 0.4),
+        inset 0 0 10px rgba(255, 255, 255, 0.2);
+    position: relative;
+    overflow: hidden;
+    animation: quickGamePulse 3s ease-in-out infinite alternate;
+}
+
+#quickGameBtn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    transition: left 0.6s;
+}
+
+#quickGameBtn:hover::before {
+    left: 100%;
+}
+
+#quickGameBtn:hover {
+    background: linear-gradient(45deg, #ff8c00, #ff6347);
+    border-color: #ff6347;
+    box-shadow: 
+        0 0 25px rgba(255, 140, 0, 0.6),
+        0 0 40px rgba(255, 99, 71, 0.3),
+        inset 0 0 15px rgba(255, 255, 255, 0.3);
+    transform: translateY(-3px) scale(1.05);
+}
+
+#quickGameBtn:active {
+    transform: translateY(-1px) scale(1.02);
+}
+
+@keyframes quickGamePulse {
+    from { 
+        box-shadow: 
+            0 0 15px rgba(255, 140, 0, 0.4),
+            inset 0 0 10px rgba(255, 255, 255, 0.2);
+    }
+    to { 
+        box-shadow: 
+            0 0 20px rgba(255, 140, 0, 0.6),
+            0 0 30px rgba(255, 140, 0, 0.2),
+            inset 0 0 15px rgba(255, 255, 255, 0.3);
+    }
+}
+
 .auto-join-message {
     animation: fade-in 0.5s ease-in;
 }
