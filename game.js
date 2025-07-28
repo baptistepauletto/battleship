@@ -338,6 +338,7 @@ class BattleshipGame {
     initializeDOM() {
         // Connection screen elements
         this.connectionScreen = document.getElementById('connectionScreen');
+        this.quickGameBtn = document.getElementById('quickGameBtn');
         this.createRoomBtn = document.getElementById('createRoomBtn');
         this.joinRoomBtn = document.getElementById('joinRoomBtn');
         this.joinRoomSection = document.getElementById('joinRoomSection');
@@ -375,6 +376,7 @@ class BattleshipGame {
 
     bindEvents() {
         // Connection events
+        this.quickGameBtn.addEventListener('click', () => this.createQuickRoom());
         this.createRoomBtn.addEventListener('click', () => this.showLayoutSelection());
         this.joinRoomBtn.addEventListener('click', () => this.showJoinRoom());
         this.joinGameBtn.addEventListener('click', () => this.joinRoom());
@@ -624,6 +626,12 @@ class BattleshipGame {
         this.roomWaiting.style.display = 'none';
         this.gameReady.style.display = 'none';
         this.roomCodeInput.value = '';
+        
+        // Restore button states
+        this.quickGameBtn.disabled = false;
+        this.quickGameBtn.textContent = '⚡ Quick Game';
+        this.createRoomBtn.disabled = false;
+        this.createRoomBtn.textContent = '🎯 Create Room';
     }
 
     showLayoutSelection() {
@@ -736,6 +744,18 @@ class BattleshipGame {
         this.layoutSelection.style.display = 'none';
         this.roomWaiting.style.display = 'block';
         this.gameReady.style.display = 'none';
+        
+        // Update waiting message for quick games
+        const waitingMessage = this.roomWaiting.querySelector('.waiting-message');
+        if (this.gameState && (this.gameState.quickGame || (this.gameState.gameState && this.gameState.gameState.quickGame))) {
+            if (this.playerNumber === 1) {
+                waitingMessage.innerHTML = 'Quick Game Mode!<br>Your ships are ready. Waiting for opponent...';
+            } else {
+                waitingMessage.innerHTML = 'Quick Game Mode!<br>Joining and preparing ships...';
+            }
+        } else {
+            waitingMessage.textContent = 'Waiting for opponent to join...';
+        }
     }
 
     showGameReady() {
@@ -822,6 +842,195 @@ class BattleshipGame {
         }
     }
 
+    async createQuickRoom() {
+        // Show loading state
+        this.quickGameBtn.disabled = true;
+        this.quickGameBtn.textContent = '⏳ Creating Quick Game...';
+        
+        this.roomCode = this.generateRoomCode();
+        this.playerNumber = 1;
+        this.selectedLayout = 'classic';
+        this.rocksEnabled = true;
+        this.rockDensity = 1; // Average amount of rocks
+
+        // Generate rock positions for player 1 with preset settings
+        const player1RockPositions = this.generateRockPositions('classic', 1);
+
+        try {
+            // Get metadata (including IP) before creating room
+            const metadata = await this.getRoomMetadata();
+            
+            const roomData = {
+                metadata: metadata,
+                quickGame: true, // Flag to identify this as a quick game
+                players: {
+                    1: {
+                        connected: true,
+                        board: this.createEmptyBoard('classic', player1RockPositions),
+                        ships: this.ships,
+                        shipsReady: false,
+                        rockPositions: player1RockPositions
+                    }
+                },
+                gameState: {
+                    gameStarted: false,
+                    currentPlayer: 1,
+                    gameOver: false,
+                    winner: null,
+                    layout: 'classic',
+                    rocksEnabled: true,
+                    rockDensity: 1,
+                    quickGame: true
+                }
+            };
+
+            await this.database.ref(`rooms/${this.roomCode}`).set(roomData);
+
+            // Automatically place ships randomly for player 1
+            await this.performQuickShipPlacement(1);
+
+            this.displayRoomCode.textContent = this.roomCode;
+            this.showWaitingRoom();
+            this.listenForRoomUpdates();
+        } catch (error) {
+            console.error('Error creating quick room:', error);
+            alert('Failed to create quick game. Please try again.');
+            // Restore button state
+            this.quickGameBtn.disabled = false;
+            this.quickGameBtn.textContent = '⚡ Quick Game';
+        }
+    }
+
+    async performQuickShipPlacement(player) {
+        // Check if ships are already placed to prevent duplicate placement
+        const shipsSnapshot = await this.database.ref(`rooms/${this.roomCode}/players/${player}/shipsReady`).once('value');
+        if (shipsSnapshot.val() === true) {
+            console.log(`Ships already placed for player ${player}, skipping`);
+            return;
+        }
+
+        const layout = MAP_LAYOUTS['classic'];
+        const shipSizes = [5, 4, 3, 3, 2];
+        const shipTypes = ['carrier', 'battleship', 'cruiser', 'submarine', 'destroyer'];
+        
+        console.log(`Starting ship placement for player ${player}`);
+        
+        try {
+            // Get current board state
+            const snapshot = await this.database.ref(`rooms/${this.roomCode}/players/${player}/board`).once('value');
+            const currentBoard = snapshot.val();
+
+            // Clear any existing ships first
+            for (let row = 0; row < layout.height; row++) {
+                for (let col = 0; col < layout.width; col++) {
+                    if (currentBoard[row][col] === 1) {
+                        currentBoard[row][col] = 0;
+                    }
+                }
+            }
+
+            const shipPlacements = [];
+
+            // Place ships randomly
+            for (let i = 0; i < shipSizes.length; i++) {
+                let placed = false;
+                let attempts = 0;
+                
+                while (!placed && attempts < 100) {
+                    const row = Math.floor(Math.random() * layout.height);
+                    const col = Math.floor(Math.random() * layout.width);
+                    const orientation = Math.random() < 0.5 ? 'horizontal' : 'vertical';
+                    
+                    if (this.canPlaceShipOnBoard(currentBoard, row, col, shipSizes[i], orientation, 'classic')) {
+                        // Place ship on local board
+                        for (let j = 0; j < shipSizes[i]; j++) {
+                            const shipRow = orientation === 'horizontal' ? row : row + j;
+                            const shipCol = orientation === 'horizontal' ? col + j : col;
+                            currentBoard[shipRow][shipCol] = 1;
+                            shipPlacements.push(`rooms/${this.roomCode}/players/${player}/board/${shipRow}/${shipCol}`);
+                        }
+                        
+                        console.log(`Placed ${shipTypes[i]} (size ${shipSizes[i]}) at ${row},${col} ${orientation}`);
+                        placed = true;
+                    }
+                    attempts++;
+                }
+                
+                if (!placed) {
+                    console.error(`Failed to place ${shipTypes[i]} for player ${player} after 100 attempts`);
+                }
+            }
+
+            // Batch update all ship placements to Firebase
+            const updates = {};
+            shipPlacements.forEach(path => {
+                updates[path] = 1;
+            });
+            
+            // Also mark all ships as placed
+            shipTypes.forEach(shipType => {
+                updates[`rooms/${this.roomCode}/players/${player}/ships/${shipType}/placed`] = true;
+            });
+            
+            // Mark ships as ready
+            updates[`rooms/${this.roomCode}/players/${player}/shipsReady`] = true;
+
+            await this.database.ref().update(updates);
+            console.log(`Successfully placed all ships for player ${player}`);
+            
+        } catch (error) {
+            console.error(`Error placing ships for player ${player}:`, error);
+        }
+    }
+
+    canPlaceShipOnBoard(board, row, col, size, orientation, layout) {
+        const layoutConfig = MAP_LAYOUTS[layout];
+
+        for (let i = 0; i < size; i++) {
+            const currentRow = orientation === 'horizontal' ? row : row + i;
+            const currentCol = orientation === 'horizontal' ? col + i : col;
+
+            // Check bounds
+            if (currentRow >= layoutConfig.height || currentCol >= layoutConfig.width) return false;
+
+            // Check if cell exists and is valid
+            if (!board[currentRow] || board[currentRow][currentCol] === undefined) return false;
+            
+            // Check if cell is blocked or has a rock
+            if (board[currentRow][currentCol] === -2 || board[currentRow][currentCol] === -3) return false;
+
+            // Check if cell is already occupied
+            if (board[currentRow][currentCol] !== 0) return false;
+
+            // Check adjacent cells for other ships
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    const adjRow = currentRow + dr;
+                    const adjCol = currentCol + dc;
+                    if (adjRow >= 0 && adjRow < layoutConfig.height && adjCol >= 0 && adjCol < layoutConfig.width) {
+                        if (board[adjRow] && board[adjRow][adjCol] === 1) {
+                            // Check if this adjacent ship cell is part of the current placement
+                            let isPartOfCurrentShip = false;
+                            for (let j = 0; j < size; j++) {
+                                const shipRow = orientation === 'horizontal' ? row : row + j;
+                                const shipCol = orientation === 'horizontal' ? col + j : col;
+                                if (adjRow === shipRow && adjCol === shipCol) {
+                                    isPartOfCurrentShip = true;
+                                    break;
+                                }
+                            }
+                            if (!isPartOfCurrentShip) return false;
+                        }
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+
+
     async joinRoom() {
         const roomCode = this.roomCodeInput.value.trim().toUpperCase();
         if (!roomCode) {
@@ -859,7 +1068,11 @@ class BattleshipGame {
             const layout = roomData.gameState?.layout || 'classic';
             const rocksEnabled = roomData.gameState?.rocksEnabled || false;
             const rockDensity = roomData.gameState?.rockDensity || 1;
+            const isQuickGame = roomData.quickGame || (roomData.gameState && roomData.gameState.quickGame);
+            
             this.selectedLayout = layout;
+            this.rocksEnabled = rocksEnabled;
+            this.rockDensity = rockDensity;
             this.updateResponsiveGrid(layout);
 
             // Generate unique rock positions for player 2
@@ -881,6 +1094,9 @@ class BattleshipGame {
                 metadata: player2Metadata
             });
 
+            // Store the room data for quick game detection
+            this.gameState = roomData;
+            
             // Keep connection screen visible until game starts
             this.listenForRoomUpdates();
         } catch (error) {
@@ -914,9 +1130,46 @@ class BattleshipGame {
         // Check if both players are connected
         const players = roomData.players;
         const bothConnected = players[1] && players[2] && players[1].connected && players[2].connected;
+        const isQuickGame = roomData.quickGame || (roomData.gameState && roomData.gameState.quickGame);
 
-        if (bothConnected && this.gamePhase === 'connection') {
-            // Show "Both players connected" screen for both players
+        // Handle quick game flow
+        if (isQuickGame && bothConnected && this.gamePhase === 'connection') {
+            // For quick games, automatically place ships for player 2 if they just joined
+            if (this.playerNumber === 2 && players[2] && !players[2].shipsReady) {
+                // Add a small delay to ensure proper sequencing
+                setTimeout(() => this.performQuickShipPlacement(2), 500);
+            }
+            
+            // Check if both players have ships ready in quick game
+            if (players[1] && players[2] && players[1].shipsReady && players[2].shipsReady) {
+                // Start battle phase immediately for quick games
+                if (this.playerNumber === 1) {
+                    this.database.ref(`rooms/${this.roomCode}/gameState`).update({
+                        currentPlayer: 1,
+                        gameStarted: true,
+                        battlePhase: true
+                    });
+                }
+                this.gameState = roomData;
+                this.gamePhase = 'game';
+                this.updateGamePhaseClasses();
+                this.hideConnectionScreen();
+                
+                // Force hide setup phase for quick games
+                if (this.setupPhase) {
+                    this.setupPhase.style.display = 'none';
+                }
+                
+                this.renderBoards();
+                this.updatePlayerSections();
+                this.updateStatus();
+                return;
+            } else {
+                // Show waiting screen for quick games
+                this.showWaitingRoom();
+            }
+        } else if (bothConnected && this.gamePhase === 'connection' && !isQuickGame) {
+            // Regular game flow - show "Both players connected" screen
             this.showGameReady();
         } else if (this.gamePhase === 'connection' && this.playerNumber === 1) {
             this.showWaitingRoom();
@@ -969,14 +1222,36 @@ class BattleshipGame {
     }
 
     startGame() {
-        this.gamePhase = 'setup';
-        this.updateGamePhaseClasses();
-        this.updateResponsiveGrid();
-        this.hideConnectionScreen();
-        this.renderBoards();
-        this.updatePlayerSections();
-        this.updateWeaponVisuals();
-        this.updateStatus();
+        // Check if this is a quick game that should skip setup
+        const isQuickGame = this.gameState && (this.gameState.quickGame || (this.gameState.gameState && this.gameState.gameState.quickGame));
+        
+        if (isQuickGame && this.gameState.gameState && this.gameState.gameState.battlePhase) {
+            // Quick game - go directly to battle phase
+            this.gamePhase = 'game';
+            this.updateGamePhaseClasses();
+            this.updateResponsiveGrid();
+            this.hideConnectionScreen();
+            
+            // Force hide setup phase
+            if (this.setupPhase) {
+                this.setupPhase.style.display = 'none';
+            }
+            
+            this.renderBoards();
+            this.updatePlayerSections();
+            this.updateWeaponVisuals();
+            this.updateStatus();
+        } else {
+            // Regular game - go to setup phase
+            this.gamePhase = 'setup';
+            this.updateGamePhaseClasses();
+            this.updateResponsiveGrid();
+            this.hideConnectionScreen();
+            this.renderBoards();
+            this.updatePlayerSections();
+            this.updateWeaponVisuals();
+            this.updateStatus();
+        }
     }
 
     selectShip(shipElement) {
