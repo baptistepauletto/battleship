@@ -105,7 +105,7 @@ Each room in Firebase includes:
 - **Game State**: Current player turn, layout, rock settings, win conditions
 
 **Privacy Notice**: This game collects IP addresses and location data (country, region, city) for analytics purposes. Data includes:
-- IP address and geolocation (via ipapi.co service)
+- IP address (via ipapi.co service)
 - Browser locale and timezone
 - Creation/join timestamps
 - ISP information
